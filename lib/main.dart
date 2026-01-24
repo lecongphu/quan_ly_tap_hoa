@@ -33,20 +33,52 @@ class MyApp extends ConsumerWidget {
       minTextAdapt: true,
       splitScreenMode: true,
       builder: (context, child) {
+        final baseScheme = ColorScheme.fromSeed(
+          seedColor: const Color(0xFF2563EB),
+          brightness: Brightness.light,
+        );
         return MaterialApp(
           title: 'Quản lý Tạp hóa',
           debugShowCheckedModeBanner: false,
           theme: ThemeData(
-            colorScheme: ColorScheme.fromSeed(
-              seedColor: Colors.blue,
-              brightness: Brightness.light,
-            ),
+            colorScheme: baseScheme,
+            scaffoldBackgroundColor: const Color(0xFFF8FAFC),
             useMaterial3: true,
             fontFamily: 'Roboto',
+            appBarTheme: AppBarTheme(
+              backgroundColor: baseScheme.surface,
+              elevation: 0,
+              centerTitle: false,
+              titleTextStyle: TextStyle(
+                fontSize: 22.sp,
+                fontWeight: FontWeight.w700,
+                color: baseScheme.onSurface,
+              ),
+            ),
+            cardTheme: CardThemeData(
+              elevation: 0,
+              color: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+            ),
+            elevatedButtonTheme: ElevatedButtonThemeData(
+              style: ElevatedButton.styleFrom(
+                elevation: 0,
+                padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 18.h),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                textStyle: TextStyle(
+                  fontSize: 16.sp,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
           ),
           darkTheme: ThemeData(
             colorScheme: ColorScheme.fromSeed(
-              seedColor: Colors.blue,
+              seedColor: const Color(0xFF2563EB),
               brightness: Brightness.dark,
             ),
             useMaterial3: true,
@@ -87,99 +119,391 @@ class _HomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authProvider);
+    final userName = authState.user?.fullName ?? '';
+
+    final quickActions = [
+      _QuickActionItem(
+        title: 'Bán hàng',
+        subtitle: 'Tạo đơn nhanh với POS',
+        icon: Icons.point_of_sale,
+        color: const Color(0xFF2563EB),
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const POSScreen()),
+        ),
+      ),
+      _QuickActionItem(
+        title: 'Sản phẩm',
+        subtitle: 'Quản lý danh mục hàng hóa',
+        icon: Icons.category_rounded,
+        color: const Color(0xFF0EA5E9),
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const ProductManagementScreen(),
+          ),
+        ),
+      ),
+      _QuickActionItem(
+        title: 'Kho hàng',
+        subtitle: 'Theo dõi tồn kho & nhập hàng',
+        icon: Icons.inventory_2_rounded,
+        color: const Color(0xFF10B981),
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const InventoryManagementScreen(),
+          ),
+        ),
+      ),
+      _QuickActionItem(
+        title: 'Công nợ',
+        subtitle: 'Quản lý thu chi & đối soát',
+        icon: Icons.account_balance_wallet_rounded,
+        color: const Color(0xFFF97316),
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const DebtManagementScreen(),
+          ),
+        ),
+      ),
+    ];
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Quản lý Tạp hóa'),
         actions: [
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Center(
-              child: Text(
-                authState.user?.fullName ?? '',
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
+            padding: EdgeInsets.only(right: 12.w),
+            child: TextButton.icon(
+              onPressed: () async => ref.read(authProvider.notifier).signOut(),
+              icon: const Icon(Icons.logout_rounded),
+              label: const Text('Đăng xuất'),
             ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () async {
-              await ref.read(authProvider.notifier).signOut();
-            },
           ),
         ],
       ),
-      body: Center(
-        child: Wrap(
-          spacing: 16,
-          runSpacing: 16,
-          alignment: WrapAlignment.center,
-          children: [
-            ElevatedButton.icon(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const POSScreen()),
-                );
-              },
-              icon: const Icon(Icons.point_of_sale, size: 32),
-              label: const Text('Bán hàng (POS)'),
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.all(24),
-                minimumSize: const Size(200, 80),
+      body: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final horizontalPadding =
+                constraints.maxWidth > 1400 ? 80.w : 32.w;
+            final columnCount = constraints.maxWidth >= 1500
+                ? 4
+                : constraints.maxWidth >= 1100
+                    ? 3
+                    : constraints.maxWidth >= 760
+                        ? 2
+                        : 1;
+
+            return SingleChildScrollView(
+              padding: EdgeInsets.fromLTRB(
+                horizontalPadding,
+                28.h,
+                horizontalPadding,
+                36.h,
               ),
-            ),
-            ElevatedButton.icon(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const ProductManagementScreen(),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _HomeHeader(userName: userName),
+                  SizedBox(height: 28.h),
+                  Text(
+                    'Truy cập nhanh',
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
                   ),
-                );
-              },
-              icon: const Icon(Icons.category, size: 32),
-              label: const Text('Quản lý Sản phẩm'),
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.all(24),
-                minimumSize: const Size(200, 80),
-              ),
-            ),
-            ElevatedButton.icon(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const InventoryManagementScreen(),
+                  SizedBox(height: 12.h),
+                  Text(
+                    'Các tính năng chính được sắp xếp theo luồng vận hành cửa hàng.',
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
                   ),
-                );
-              },
-              icon: const Icon(Icons.inventory, size: 32),
-              label: const Text('Quản lý Kho'),
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.all(24),
-                minimumSize: const Size(200, 80),
-              ),
-            ),
-            ElevatedButton.icon(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const DebtManagementScreen(),
+                  SizedBox(height: 20.h),
+                  GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: quickActions.length,
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: columnCount,
+                      crossAxisSpacing: 18.w,
+                      mainAxisSpacing: 18.h,
+                      childAspectRatio: columnCount == 1 ? 1.55 : 1.25,
+                    ),
+                    itemBuilder: (context, index) {
+                      return _QuickActionCard(item: quickActions[index]);
+                    },
                   ),
-                );
-              },
-              icon: const Icon(Icons.account_balance_wallet, size: 32),
-              label: const Text('Quản lý Công nợ'),
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.all(24),
-                minimumSize: const Size(200, 80),
+                ],
               ),
-            ),
-          ],
+            );
+          },
         ),
       ),
     );
   }
+}
+
+class _HomeHeader extends StatelessWidget {
+  const _HomeHeader({required this.userName});
+
+  final String userName;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final greetingName = userName.isEmpty ? 'bạn' : userName;
+
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(28.w),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(28),
+        gradient: const LinearGradient(
+          colors: [Color(0xFF1D4ED8), Color(0xFF2563EB), Color(0xFF38BDF8)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF2563EB).withOpacity(0.28),
+            blurRadius: 32,
+            offset: const Offset(0, 20),
+          ),
+        ],
+      ),
+      child: Wrap(
+        spacing: 24.w,
+        runSpacing: 24.h,
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: 720.w),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Xin chào, $greetingName 👋',
+                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                      ),
+                ),
+                SizedBox(height: 10.h),
+                Text(
+                  'Theo dõi hoạt động cửa hàng và bắt đầu nhanh các tác vụ quan trọng chỉ với một chạm.',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: Colors.white.withOpacity(0.92),
+                        height: 1.4,
+                      ),
+                ),
+                SizedBox(height: 20.h),
+                FilledButton.icon(
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const POSScreen()),
+                  ),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: scheme.primary,
+                    padding: EdgeInsets.symmetric(horizontal: 22.w, vertical: 18.h),
+                    textStyle: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                  ),
+                  icon: const Icon(Icons.flash_on_rounded),
+                  label: const Text('Mở POS ngay'),
+                ),
+              ],
+            ),
+          ),
+          _HeaderHighlights(scheme: scheme),
+        ],
+      ),
+    );
+  }
+}
+
+class _HeaderHighlights extends StatelessWidget {
+  const _HeaderHighlights({required this.scheme});
+
+  final ColorScheme scheme;
+
+  @override
+  Widget build(BuildContext context) {
+    final items = [
+      _HighlightItem(
+        label: 'Bán hàng',
+        description: 'Xử lý đơn trong vài giây',
+        icon: Icons.bolt_rounded,
+      ),
+      _HighlightItem(
+        label: 'Kho hàng',
+        description: 'Tồn kho luôn cập nhật',
+        icon: Icons.inventory_rounded,
+      ),
+      _HighlightItem(
+        label: 'Công nợ',
+        description: 'Theo dõi thu chi rõ ràng',
+        icon: Icons.receipt_long_rounded,
+      ),
+    ];
+
+    return Wrap(
+      spacing: 12.w,
+      runSpacing: 12.h,
+      children:
+          items.map((item) => _HighlightChip(item: item, scheme: scheme)).toList(),
+    );
+  }
+}
+
+class _HighlightChip extends StatelessWidget {
+  const _HighlightChip({required this.item, required this.scheme});
+
+  final _HighlightItem item;
+  final ColorScheme scheme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.16),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withOpacity(0.18)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: EdgeInsets.all(8.w),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(item.icon, color: scheme.primary),
+          ),
+          SizedBox(width: 12.w),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                item.label,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+              SizedBox(height: 2.h),
+              Text(
+                item.description,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Colors.white.withOpacity(0.9),
+                    ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _QuickActionCard extends StatelessWidget {
+  const _QuickActionCard({required this.item});
+
+  final _QuickActionItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: item.onTap,
+        child: Padding(
+          padding: EdgeInsets.all(22.w),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: EdgeInsets.all(14.w),
+                decoration: BoxDecoration(
+                  color: item.color.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: Icon(item.icon, color: item.color, size: 30.sp),
+              ),
+              SizedBox(height: 18.h),
+              Text(
+                item.title,
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+              ),
+              SizedBox(height: 8.h),
+              Text(
+                item.subtitle,
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                      height: 1.4,
+                    ),
+              ),
+              const Spacer(),
+              Row(
+                children: [
+                  Text(
+                    'Mở tính năng',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: item.color,
+                        ),
+                  ),
+                  SizedBox(width: 6.w),
+                  Icon(Icons.arrow_forward_rounded, color: item.color),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _QuickActionItem {
+  const _QuickActionItem({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
+
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+}
+
+class _HighlightItem {
+  const _HighlightItem({
+    required this.label,
+    required this.description,
+    required this.icon,
+  });
+
+  final String label;
+  final String description;
+  final IconData icon;
 }
