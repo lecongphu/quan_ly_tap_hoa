@@ -51,14 +51,11 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen>
     final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Quản lý Kho'),
-      ),
+      appBar: AppBar(title: const Text('Quản lý Kho')),
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final horizontalPadding =
-                constraints.maxWidth > 1400 ? 72.w : 28.w;
+            final horizontalPadding = constraints.maxWidth > 1400 ? 72.w : 28.w;
 
             return Column(
               children: [
@@ -103,10 +100,7 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen>
 }
 
 class _InventoryHeader extends StatelessWidget {
-  const _InventoryHeader({
-    required this.tabController,
-    required this.tabs,
-  });
+  const _InventoryHeader({required this.tabController, required this.tabs});
 
   final TabController tabController;
   final List<_InventoryTabItem> tabs;
@@ -126,20 +120,20 @@ class _InventoryHeader extends StatelessWidget {
           padding: EdgeInsets.all(24.w),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(24),
-            gradient: const LinearGradient(
+            gradient: LinearGradient(
               colors: [
-                Color(0xFF0F172A),
-                Color(0xFF1E293B),
-                Color(0xFF0EA5E9),
+                scheme.primaryContainer.withOpacity(0.9),
+                scheme.secondaryContainer.withOpacity(0.8),
+                scheme.tertiaryContainer.withOpacity(0.7),
               ],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF0F172A).withOpacity(0.2),
-                blurRadius: 28,
-                offset: const Offset(0, 18),
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 12,
+                offset: const Offset(0, 6),
               ),
             ],
           ),
@@ -156,9 +150,7 @@ class _InventoryHeader extends StatelessWidget {
                   children: [
                     Text(
                       tab.label,
-                      style: Theme.of(context)
-                          .textTheme
-                          .headlineSmall
+                      style: Theme.of(context).textTheme.headlineSmall
                           ?.copyWith(
                             color: Colors.white,
                             fontWeight: FontWeight.w800,
@@ -167,13 +159,10 @@ class _InventoryHeader extends StatelessWidget {
                     SizedBox(height: 6.h),
                     Text(
                       tab.description,
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleMedium
-                          ?.copyWith(
-                            color: Colors.white.withOpacity(0.92),
-                            height: 1.4,
-                          ),
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: Colors.white.withOpacity(0.92),
+                        height: 1.4,
+                      ),
                     ),
                   ],
                 ),
@@ -193,11 +182,7 @@ class _InventoryHeader extends StatelessWidget {
                         color: scheme.primary.withOpacity(0.12),
                         borderRadius: BorderRadius.circular(14),
                       ),
-                      child: Icon(
-                        tab.icon,
-                        color: scheme.primary,
-                        size: 24.sp,
-                      ),
+                      child: Icon(tab.icon, color: scheme.primary, size: 24.sp),
                     ),
                     SizedBox(width: 12.w),
                     Column(
@@ -205,9 +190,7 @@ class _InventoryHeader extends StatelessWidget {
                       children: [
                         Text(
                           'Không gian làm việc',
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodyMedium
+                          style: Theme.of(context).textTheme.bodyMedium
                               ?.copyWith(
                                 color: scheme.onSurfaceVariant,
                                 fontWeight: FontWeight.w600,
@@ -215,9 +198,7 @@ class _InventoryHeader extends StatelessWidget {
                         ),
                         Text(
                           'Kho hàng',
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleMedium
+                          style: Theme.of(context).textTheme.titleMedium
                               ?.copyWith(
                                 fontWeight: FontWeight.w800,
                                 color: scheme.primary,
@@ -250,16 +231,16 @@ class _InventoryTabBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.all(6.w),
+      padding: EdgeInsets.symmetric(vertical: 4.w, horizontal: 6.w),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: scheme.outline.withOpacity(0.08)),
+        color: scheme.surfaceVariant.withOpacity(0.6),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: scheme.outlineVariant.withOpacity(0.12)),
         boxShadow: [
           BoxShadow(
-            color: scheme.primary.withOpacity(0.05),
-            blurRadius: 18,
-            offset: const Offset(0, 10),
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
@@ -268,22 +249,22 @@ class _InventoryTabBar extends StatelessWidget {
         indicatorSize: TabBarIndicatorSize.tab,
         dividerColor: Colors.transparent,
         indicator: BoxDecoration(
-          color: scheme.primary,
-          borderRadius: BorderRadius.circular(16),
+          color: scheme.primaryContainer,
+          borderRadius: BorderRadius.circular(14),
           boxShadow: [
             BoxShadow(
-              color: scheme.primary.withOpacity(0.28),
-              blurRadius: 18,
-              offset: const Offset(0, 10),
+              color: scheme.primary.withOpacity(0.2),
+              blurRadius: 12,
+              offset: const Offset(0, 6),
             ),
           ],
         ),
         labelColor: scheme.onPrimary,
         unselectedLabelColor: scheme.onSurfaceVariant,
-        labelStyle: TextStyle(fontWeight: FontWeight.w700, fontSize: 14.sp),
+        labelStyle: TextStyle(fontWeight: FontWeight.w600, fontSize: 15.sp),
         unselectedLabelStyle: TextStyle(
-          fontWeight: FontWeight.w600,
-          fontSize: 13.sp,
+          fontWeight: FontWeight.w500,
+          fontSize: 14.sp,
         ),
         tabs: tabs
             .map(

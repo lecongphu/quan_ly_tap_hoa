@@ -18,15 +18,20 @@ class _StockListTabState extends ConsumerState<StockListTab>
   late TabController _tabController;
   final _searchController = TextEditingController();
   final _excelService = ExcelService();
-  String _stockFilter = 'all'; // all, in_stock, out_of_stock
   bool _isExporting = false;
   bool _isImporting = false;
   List<Product> _currentProducts = [];
 
+  // Date filter state
+  DateTime? _dateFrom;
+  DateTime? _dateTo;
+  String _selectedDateOption =
+      'all'; // all, today, this_week, this_month, custom
+
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
     _tabController.addListener(_onTabChanged);
   }
 
@@ -39,19 +44,27 @@ class _StockListTabState extends ConsumerState<StockListTab>
 
   void _onTabChanged() {
     if (!_tabController.indexIsChanging) {
-      setState(() {
-        switch (_tabController.index) {
-          case 0:
-            _stockFilter = 'all';
-            break;
-          case 1:
-            _stockFilter = 'in_stock';
-            break;
-          case 2:
-            _stockFilter = 'out_of_stock';
-            break;
-        }
-      });
+      String stockStatus;
+      switch (_tabController.index) {
+        case 0:
+          stockStatus = 'all';
+          break;
+        case 1:
+          stockStatus = 'in_stock';
+          break;
+        case 2:
+          stockStatus = 'low_stock';
+          break;
+        case 3:
+          stockStatus = 'out_of_stock';
+          break;
+        default:
+          stockStatus = 'all';
+      }
+      // Update the provider filter
+      ref
+          .read(inventoryFilterProvider.notifier)
+          .update((state) => state.copyWith(stockStatus: stockStatus));
     }
   }
 
@@ -199,9 +212,408 @@ class _StockListTabState extends ConsumerState<StockListTab>
     );
   }
 
+  void _showProductDetailDialog(Product product) {
+    final currencyFormat = NumberFormat.currency(locale: 'vi_VN', symbol: '₫');
+    final dateFormat = DateFormat('dd/MM/yyyy');
+    final scheme = Theme.of(context).colorScheme;
+
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Container(
+          width: 520,
+          constraints: const BoxConstraints(maxHeight: 650),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      scheme.primaryContainer,
+                      scheme.secondaryContainer,
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(20),
+                    topRight: Radius.circular(20),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(14),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Icon(
+                        Icons.inventory_2_rounded,
+                        color: scheme.primary,
+                        size: 28,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Chi tiết sản phẩm',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: scheme.onPrimaryContainer.withOpacity(0.7),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            product.name,
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: scheme.onPrimaryContainer,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: Icon(
+                        Icons.close_rounded,
+                        color: scheme.onPrimaryContainer,
+                      ),
+                      style: IconButton.styleFrom(
+                        backgroundColor: Colors.white.withOpacity(0.3),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Content
+              Flexible(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Stock Status Cards
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildStatCard(
+                              icon: Icons.inventory,
+                              label: 'Tồn kho',
+                              value: '${(product.currentStock ?? 0).toInt()}',
+                              color: (product.currentStock ?? 0) <= 0
+                                  ? Colors.red
+                                  : (product.currentStock ?? 0) <=
+                                        product.minStockLevel
+                                  ? Colors.orange
+                                  : Colors.green,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _buildStatCard(
+                              icon: Icons.attach_money,
+                              label: 'Giá vốn TB',
+                              value: currencyFormat.format(
+                                product.avgCostPrice ?? 0,
+                              ),
+                              color: Colors.blue,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Product Info Section
+                      _buildSectionHeader('Thông tin cơ bản'),
+                      const SizedBox(height: 12),
+                      _buildInfoRow('Mã sản phẩm', product.id.substring(0, 8)),
+                      _buildInfoRow('Barcode', product.barcode ?? 'Chưa có'),
+                      _buildInfoRow('Đơn vị tính', product.unit),
+                      _buildInfoRow(
+                        'Danh mục',
+                        product.categoryName ?? 'Chưa phân loại',
+                      ),
+                      _buildInfoRow(
+                        'Mức tồn kho tối thiểu',
+                        product.minStockLevel.toInt().toString(),
+                      ),
+                      const SizedBox(height: 20),
+
+                      // Status Section
+                      _buildSectionHeader('Trạng thái'),
+                      const SizedBox(height: 12),
+                      _buildStatusChips(product),
+                      const SizedBox(height: 20),
+
+                      // Date Info Section
+                      _buildSectionHeader('Thông tin thời gian'),
+                      const SizedBox(height: 12),
+                      _buildInfoRow(
+                        'Ngày tạo',
+                        dateFormat.format(product.createdAt),
+                      ),
+                      _buildInfoRow(
+                        'Cập nhật lần cuối',
+                        dateFormat.format(product.updatedAt),
+                      ),
+                      if (product.nearestExpiryDate != null)
+                        _buildInfoRow(
+                          'Ngày hết hạn gần nhất',
+                          dateFormat.format(product.nearestExpiryDate!),
+                          valueColor: product.isDangerExpiry
+                              ? Colors.red
+                              : product.isNearExpiry
+                              ? Colors.orange
+                              : null,
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+
+              // Footer Actions
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.grey[50],
+                  borderRadius: const BorderRadius.only(
+                    bottomLeft: Radius.circular(20),
+                    bottomRight: Radius.circular(20),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        // TODO: Navigate to edit product
+                      },
+                      icon: const Icon(Icons.edit_rounded, size: 18),
+                      label: const Text('Chỉnh sửa'),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 12,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const StockInScreen(),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.add_shopping_cart, size: 18),
+                      label: const Text('Nhập kho'),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 12,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatCard({
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: color.withOpacity(0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: color, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: color.withOpacity(0.8),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader(String title) {
+    return Row(
+      children: [
+        Container(
+          width: 4,
+          height: 16,
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.primary,
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          title,
+          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildInfoRow(String label, String value, {Color? valueColor}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 180,
+            child: Text(
+              label,
+              style: TextStyle(color: Colors.grey[600], fontSize: 13),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: TextStyle(
+                fontWeight: FontWeight.w500,
+                fontSize: 13,
+                color: valueColor,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatusChips(Product product) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        // Active status
+        _buildChip(
+          label: product.isActive ? 'Đang bán' : 'Ngừng bán',
+          color: product.isActive ? Colors.green : Colors.grey,
+          icon: product.isActive ? Icons.check_circle : Icons.cancel,
+        ),
+        // Stock status
+        if (product.isOutOfStock)
+          _buildChip(label: 'Hết hàng', color: Colors.red, icon: Icons.error)
+        else if (product.isLowStock)
+          _buildChip(
+            label: 'Sắp hết',
+            color: Colors.orange,
+            icon: Icons.warning,
+          )
+        else
+          _buildChip(label: 'Còn hàng', color: Colors.green, icon: Icons.check),
+        // Expiry status
+        if (product.isDangerExpiry)
+          _buildChip(
+            label: 'Sắp hết hạn',
+            color: Colors.red,
+            icon: Icons.schedule,
+          )
+        else if (product.isNearExpiry)
+          _buildChip(
+            label: 'Gần hết hạn',
+            color: Colors.orange,
+            icon: Icons.schedule,
+          ),
+      ],
+    );
+  }
+
+  Widget _buildChip({
+    required String label,
+    required Color color,
+    required IconData icon,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              color: color,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final productsAsync = ref.watch(productsProvider);
+    final productsAsync = ref.watch(filteredProductsProvider);
+    final filter = ref.watch(inventoryFilterProvider);
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
@@ -218,12 +630,13 @@ class _StockListTabState extends ConsumerState<StockListTab>
               tabs: const [
                 Tab(text: 'Tất cả'),
                 Tab(text: 'Còn hàng'),
+                Tab(text: 'Sắp hết'),
                 Tab(text: 'Hết hàng'),
               ],
             ),
           ),
           // Search and filter bar
-          _buildFilterBar(),
+          _buildFilterBar(filter),
           // Product table
           Expanded(
             child: productsAsync.when(
@@ -247,7 +660,7 @@ class _StockListTabState extends ConsumerState<StockListTab>
     );
   }
 
-  Widget _buildFilterBar() {
+  Widget _buildFilterBar(InventoryFilter filter) {
     return Container(
       padding: const EdgeInsets.all(16),
       color: Colors.white,
@@ -260,6 +673,19 @@ class _StockListTabState extends ConsumerState<StockListTab>
               decoration: InputDecoration(
                 hintText: 'Tìm kiếm theo mã SKU, tên sản phẩm, barcode',
                 prefixIcon: const Icon(Icons.search, size: 20),
+                suffixIcon: _searchController.text.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear, size: 18),
+                        onPressed: () {
+                          _searchController.clear();
+                          ref
+                              .read(inventoryFilterProvider.notifier)
+                              .update(
+                                (state) => state.copyWith(searchQuery: ''),
+                              );
+                        },
+                      )
+                    : null,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(4),
                   borderSide: BorderSide(color: Colors.grey[300]!),
@@ -271,36 +697,35 @@ class _StockListTabState extends ConsumerState<StockListTab>
                 isDense: true,
               ),
               onChanged: (value) {
-                setState(() {});
+                ref
+                    .read(inventoryFilterProvider.notifier)
+                    .update((state) => state.copyWith(searchQuery: value));
               },
             ),
           ),
           const SizedBox(width: 12),
           // Date filter
-          _buildFilterButton('Ngày tạo', Icons.arrow_drop_down),
+          _buildDateFilterButton(filter),
           const SizedBox(width: 8),
-          // Stock filter
-          _buildFilterButton('Tồn kho', Icons.arrow_drop_down),
+          // Category filter
+          _buildCategoryFilterButton(filter),
           const SizedBox(width: 8),
-          // More filters
-          OutlinedButton.icon(
-            onPressed: () {},
-            icon: const Icon(Icons.filter_list, size: 18),
-            label: const Text('Bộ lọc khác'),
-            style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          // Clear filters button
+          if (filter.hasActiveFilters)
+            OutlinedButton.icon(
+              onPressed: _clearAllFilters,
+              icon: const Icon(Icons.clear_all, size: 18),
+              label: Text('Xóa bộ lọc (${filter.activeFilterCount})'),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                foregroundColor: Colors.red,
+              ),
             ),
-          ),
-          const SizedBox(width: 8),
-          // Save filter
-          OutlinedButton(
-            onPressed: () {},
-            style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            ),
-            child: const Text('Lưu bộ lọc'),
-          ),
-          const SizedBox(width: 16),
+          if (filter.hasActiveFilters) const SizedBox(width: 8),
+          const Spacer(),
           // Export button
           OutlinedButton.icon(
             onPressed: _isExporting ? null : _exportToExcel,
@@ -371,56 +796,356 @@ class _StockListTabState extends ConsumerState<StockListTab>
     );
   }
 
-  Widget _buildFilterButton(String label, IconData icon) {
-    return OutlinedButton(
-      onPressed: () {},
-      style: OutlinedButton.styleFrom(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+  void _clearAllFilters() {
+    _searchController.clear();
+    _dateFrom = null;
+    _dateTo = null;
+    _selectedDateOption = 'all';
+    _tabController.animateTo(0);
+    ref.read(inventoryFilterProvider.notifier).state = const InventoryFilter();
+  }
+
+  Widget _buildDateFilterButton(InventoryFilter filter) {
+    final hasDateFilter = filter.dateFrom != null || filter.dateTo != null;
+    final dateFormat = DateFormat('dd/MM/yyyy');
+
+    String label = 'Ngày tạo';
+    if (_selectedDateOption == 'today') {
+      label = 'Hôm nay';
+    } else if (_selectedDateOption == 'this_week') {
+      label = 'Tuần này';
+    } else if (_selectedDateOption == 'this_month') {
+      label = 'Tháng này';
+    } else if (hasDateFilter) {
+      if (filter.dateFrom != null && filter.dateTo != null) {
+        label =
+            '${dateFormat.format(filter.dateFrom!)} - ${dateFormat.format(filter.dateTo!)}';
+      } else if (filter.dateFrom != null) {
+        label = 'Từ ${dateFormat.format(filter.dateFrom!)}';
+      } else if (filter.dateTo != null) {
+        label = 'Đến ${dateFormat.format(filter.dateTo!)}';
+      }
+    }
+
+    return PopupMenuButton<String>(
+      onSelected: (value) => _handleDateFilter(value),
+      itemBuilder: (context) => [
+        PopupMenuItem(
+          value: 'all',
+          child: Row(
+            children: [
+              Icon(
+                _selectedDateOption == 'all' ? Icons.check : Icons.access_time,
+                size: 18,
+                color: _selectedDateOption == 'all' ? Colors.blue : null,
+              ),
+              const SizedBox(width: 8),
+              const Text('Tất cả'),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          value: 'today',
+          child: Row(
+            children: [
+              Icon(
+                _selectedDateOption == 'today' ? Icons.check : Icons.today,
+                size: 18,
+                color: _selectedDateOption == 'today' ? Colors.blue : null,
+              ),
+              const SizedBox(width: 8),
+              const Text('Hôm nay'),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          value: 'this_week',
+          child: Row(
+            children: [
+              Icon(
+                _selectedDateOption == 'this_week'
+                    ? Icons.check
+                    : Icons.date_range,
+                size: 18,
+                color: _selectedDateOption == 'this_week' ? Colors.blue : null,
+              ),
+              const SizedBox(width: 8),
+              const Text('Tuần này'),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          value: 'this_month',
+          child: Row(
+            children: [
+              Icon(
+                _selectedDateOption == 'this_month'
+                    ? Icons.check
+                    : Icons.calendar_month,
+                size: 18,
+                color: _selectedDateOption == 'this_month' ? Colors.blue : null,
+              ),
+              const SizedBox(width: 8),
+              const Text('Tháng này'),
+            ],
+          ),
+        ),
+        const PopupMenuDivider(),
+        const PopupMenuItem(
+          value: 'custom',
+          child: Row(
+            children: [
+              Icon(Icons.edit_calendar, size: 18),
+              SizedBox(width: 8),
+              Text('Tùy chọn...'),
+            ],
+          ),
+        ),
+      ],
+      child: OutlinedButton(
+        onPressed: null,
+        style: OutlinedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          backgroundColor: hasDateFilter ? Colors.blue.withOpacity(0.1) : null,
+          side: hasDateFilter ? const BorderSide(color: Colors.blue) : null,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (hasDateFilter)
+              const Icon(Icons.check_circle, size: 16, color: Colors.blue)
+            else
+              const Icon(Icons.calendar_today, size: 16),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                color: hasDateFilter ? Colors.blue : null,
+              ),
+            ),
+            const SizedBox(width: 4),
+            const Icon(Icons.arrow_drop_down, size: 18),
+          ],
+        ),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(label, style: const TextStyle(fontSize: 13)),
-          const SizedBox(width: 4),
-          Icon(icon, size: 18),
-        ],
+    );
+  }
+
+  void _handleDateFilter(String option) async {
+    DateTime? dateFrom;
+    DateTime? dateTo;
+    final now = DateTime.now();
+
+    switch (option) {
+      case 'all':
+        _selectedDateOption = 'all';
+        dateFrom = null;
+        dateTo = null;
+        break;
+      case 'today':
+        _selectedDateOption = 'today';
+        dateFrom = DateTime(now.year, now.month, now.day);
+        dateTo = DateTime(now.year, now.month, now.day);
+        break;
+      case 'this_week':
+        _selectedDateOption = 'this_week';
+        // Start of week (Monday)
+        final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
+        dateFrom = DateTime(
+          startOfWeek.year,
+          startOfWeek.month,
+          startOfWeek.day,
+        );
+        dateTo = DateTime(now.year, now.month, now.day);
+        break;
+      case 'this_month':
+        _selectedDateOption = 'this_month';
+        dateFrom = DateTime(now.year, now.month, 1);
+        dateTo = DateTime(now.year, now.month, now.day);
+        break;
+      case 'custom':
+        _selectedDateOption = 'custom';
+        await _showCustomDatePicker();
+        return;
+    }
+
+    setState(() {
+      _dateFrom = dateFrom;
+      _dateTo = dateTo;
+    });
+
+    ref
+        .read(inventoryFilterProvider.notifier)
+        .update(
+          (state) => state.copyWith(
+            dateFrom: dateFrom,
+            dateTo: dateTo,
+            clearDateFrom: dateFrom == null,
+            clearDateTo: dateTo == null,
+          ),
+        );
+  }
+
+  Future<void> _showCustomDatePicker() async {
+    final result = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+      initialDateRange: _dateFrom != null && _dateTo != null
+          ? DateTimeRange(start: _dateFrom!, end: _dateTo!)
+          : null,
+      locale: const Locale('vi', 'VN'),
+      helpText: 'Chọn khoảng thời gian',
+      cancelText: 'Hủy',
+      confirmText: 'Áp dụng',
+      saveText: 'Lưu',
+    );
+
+    if (result != null) {
+      setState(() {
+        _dateFrom = result.start;
+        _dateTo = result.end;
+      });
+
+      ref
+          .read(inventoryFilterProvider.notifier)
+          .update(
+            (state) =>
+                state.copyWith(dateFrom: result.start, dateTo: result.end),
+          );
+    }
+  }
+
+  Widget _buildCategoryFilterButton(InventoryFilter filter) {
+    final categoriesAsync = ref.watch(categoriesProvider);
+    final hasFilter = filter.categoryId != null;
+
+    return categoriesAsync.when(
+      data: (categories) {
+        String label = 'Danh mục';
+        if (hasFilter) {
+          final category = categories.firstWhere(
+            (c) => c.id == filter.categoryId,
+            orElse: () =>
+                Category(id: '', name: 'Tất cả', createdAt: DateTime.now()),
+          );
+          label = category.name;
+        }
+
+        return PopupMenuButton<String?>(
+          onSelected: (value) {
+            ref
+                .read(inventoryFilterProvider.notifier)
+                .update(
+                  (state) => state.copyWith(
+                    categoryId: value,
+                    clearCategory: value == null,
+                  ),
+                );
+          },
+          itemBuilder: (context) => [
+            PopupMenuItem<String?>(
+              value: null,
+              child: Row(
+                children: [
+                  Icon(
+                    !hasFilter ? Icons.check : Icons.category,
+                    size: 18,
+                    color: !hasFilter ? Colors.blue : null,
+                  ),
+                  const SizedBox(width: 8),
+                  const Text('Tất cả danh mục'),
+                ],
+              ),
+            ),
+            const PopupMenuDivider(),
+            ...categories.map(
+              (category) => PopupMenuItem<String?>(
+                value: category.id,
+                child: Row(
+                  children: [
+                    Icon(
+                      filter.categoryId == category.id
+                          ? Icons.check
+                          : Icons.folder,
+                      size: 18,
+                      color: filter.categoryId == category.id
+                          ? Colors.blue
+                          : null,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(category.name),
+                  ],
+                ),
+              ),
+            ),
+          ],
+          child: OutlinedButton(
+            onPressed: null,
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              backgroundColor: hasFilter ? Colors.blue.withOpacity(0.1) : null,
+              side: hasFilter ? const BorderSide(color: Colors.blue) : null,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (hasFilter)
+                  const Icon(Icons.check_circle, size: 16, color: Colors.blue)
+                else
+                  const Icon(Icons.category, size: 16),
+                const SizedBox(width: 6),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: hasFilter ? Colors.blue : null,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                const Icon(Icons.arrow_drop_down, size: 18),
+              ],
+            ),
+          ),
+        );
+      },
+      loading: () => OutlinedButton(
+        onPressed: null,
+        style: OutlinedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            SizedBox(width: 8),
+            Text('Danh mục'),
+          ],
+        ),
+      ),
+      error: (_, __) => OutlinedButton(
+        onPressed: null,
+        style: OutlinedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        ),
+        child: const Text('Danh mục'),
       ),
     );
   }
 
   Widget _buildProductTable(List<Product> products) {
-    // Filter products based on search and tab
-    var filteredProducts = products;
-
-    // Search filter
-    if (_searchController.text.isNotEmpty) {
-      filteredProducts = filteredProducts.where((p) {
-        final query = _searchController.text.toLowerCase();
-        return p.name.toLowerCase().contains(query) ||
-            (p.barcode?.toLowerCase().contains(query) ?? false);
-      }).toList();
-    }
-
-    // Stock filter
-    switch (_stockFilter) {
-      case 'in_stock':
-        filteredProducts = filteredProducts.where((p) {
-          return (p.currentStock ?? 0) > 0;
-        }).toList();
-        break;
-      case 'out_of_stock':
-        filteredProducts = filteredProducts.where((p) {
-          return (p.currentStock ?? 0) <= 0;
-        }).toList();
-        break;
-    }
-
+    // Products are already filtered by the provider
     final currencyFormat = NumberFormat.currency(locale: 'vi_VN', symbol: '₫');
 
     // Store current products for export
-    _currentProducts = filteredProducts;
+    _currentProducts = products;
 
-    if (filteredProducts.isEmpty) {
+    if (products.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -468,7 +1193,7 @@ class _StockListTabState extends ConsumerState<StockListTab>
                     DataColumn(label: Text('Giá bán')),
                     DataColumn(label: Text('Giá vốn')),
                   ],
-                  rows: filteredProducts.map((product) {
+                  rows: products.map((product) {
                     return DataRow(
                       cells: [
                         // Checkbox + Image
@@ -493,15 +1218,21 @@ class _StockListTabState extends ConsumerState<StockListTab>
                             ],
                           ),
                         ),
-                        // Product name
+                        // Product name - clickable
                         DataCell(
-                          Text(
-                            product.name,
-                            style: const TextStyle(
-                              color: Colors.blue,
-                              fontWeight: FontWeight.w500,
+                          MouseRegion(
+                            cursor: SystemMouseCursors.click,
+                            child: Text(
+                              product.name,
+                              style: const TextStyle(
+                                color: Colors.blue,
+                                fontWeight: FontWeight.w500,
+                                decoration: TextDecoration.underline,
+                                decorationColor: Colors.blue,
+                              ),
                             ),
                           ),
+                          onTap: () => _showProductDetailDialog(product),
                         ),
                         // SKU
                         DataCell(Text(product.barcode ?? '-')),
@@ -548,7 +1279,7 @@ class _StockListTabState extends ConsumerState<StockListTab>
           ),
         ),
         // Pagination
-        _buildPagination(filteredProducts.length),
+        _buildPagination(products.length),
       ],
     );
   }

@@ -8,9 +8,15 @@ class InventoryService {
   final SupabaseClient _supabase = SupabaseService.instance.client;
 
   /// Get all products with current inventory
+  ///
+  /// [stockStatus] can be: 'all', 'in_stock', 'out_of_stock', 'low_stock'
+  /// [dateFrom] and [dateTo] filter by created_at date
   Future<List<Product>> getProducts({
     String? categoryId,
     String? searchQuery,
+    String stockStatus = 'all',
+    DateTime? dateFrom,
+    DateTime? dateTo,
     bool activeOnly = true,
   }) async {
     try {
@@ -30,9 +36,46 @@ class InventoryService {
         );
       }
 
+      // Filter by stock status
+      switch (stockStatus) {
+        case 'in_stock':
+          query = query.gt('total_quantity', 0);
+          break;
+        case 'out_of_stock':
+          query = query.or('total_quantity.is.null,total_quantity.lte.0');
+          break;
+        case 'low_stock':
+          // Products where stock <= min_stock_level
+          query = query.not('min_stock_level', 'eq', 0);
+          break;
+      }
+
+      // Filter by date range
+      if (dateFrom != null) {
+        query = query.gte('created_at', dateFrom.toIso8601String());
+      }
+      if (dateTo != null) {
+        // Add 1 day to include the end date
+        final endDate = dateTo.add(const Duration(days: 1));
+        query = query.lt('created_at', endDate.toIso8601String());
+      }
+
       final response = await query.order('name');
 
-      return (response as List).map((item) => Product.fromJson(item)).toList();
+      List<Product> products = (response as List)
+          .map((item) => Product.fromJson(item))
+          .toList();
+
+      // Additional client-side filtering for low_stock
+      // (since SQL comparison with min_stock_level requires more complex query)
+      if (stockStatus == 'low_stock') {
+        products = products.where((p) {
+          return p.minStockLevel > 0 &&
+              (p.currentStock ?? 0) <= p.minStockLevel;
+        }).toList();
+      }
+
+      return products;
     } catch (e) {
       throw Exception('Lỗi khi tải danh sách sản phẩm: ${e.toString()}');
     }
