@@ -602,6 +602,152 @@ class _CartItemTile extends ConsumerWidget {
 
   const _CartItemTile({required this.item});
 
+  Future<void> _showQuantityKeypad(BuildContext context, WidgetRef ref) async {
+    var quantityText = item.quantity.toInt().toString();
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            final colorScheme = Theme.of(context).colorScheme;
+
+            void appendDigit(String digit) {
+              setState(() {
+                if (quantityText == '0') {
+                  quantityText = digit;
+                } else {
+                  quantityText += digit;
+                }
+              });
+            }
+
+            void backspace() {
+              setState(() {
+                if (quantityText.length <= 1) {
+                  quantityText = '0';
+                } else {
+                  quantityText = quantityText.substring(
+                    0,
+                    quantityText.length - 1,
+                  );
+                }
+              });
+            }
+
+            void clearAll() {
+              setState(() {
+                quantityText = '0';
+              });
+            }
+
+            void confirm() {
+              final parsedQuantity = int.tryParse(quantityText) ?? 0;
+              if (parsedQuantity <= 0) {
+                return;
+              }
+
+              ref
+                  .read(cartProvider.notifier)
+                  .updateQuantity(item.product.id, parsedQuantity.toDouble());
+              Navigator.of(dialogContext).pop();
+            }
+
+            Widget buildKey(
+              String label, {
+              VoidCallback? onTap,
+              IconData? icon,
+            }) {
+              return Padding(
+                padding: EdgeInsets.all(4.w),
+                child: SizedBox(
+                  height: 56.h,
+                  child: ElevatedButton(
+                    onPressed: onTap,
+                    style: ElevatedButton.styleFrom(
+                      padding: EdgeInsets.zero,
+                      textStyle: TextStyle(
+                        fontSize: 20.sp,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    child: icon != null ? Icon(icon) : Text(label),
+                  ),
+                ),
+              );
+            }
+
+            return AlertDialog(
+              title: const Text('Cập nhật số lượng'),
+              content: SizedBox(
+                width: 260.w,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: double.infinity,
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 12.w,
+                        vertical: 10.h,
+                      ),
+                      decoration: BoxDecoration(
+                        color: colorScheme.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(12.r),
+                      ),
+                      child: Text(
+                        quantityText,
+                        textAlign: TextAlign.right,
+                        style: TextStyle(
+                          fontSize: 28.sp,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: 12.h),
+                    GridView.count(
+                      crossAxisCount: 3,
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      childAspectRatio: 1.2,
+                      children: [
+                        buildKey('1', onTap: () => appendDigit('1')),
+                        buildKey('2', onTap: () => appendDigit('2')),
+                        buildKey('3', onTap: () => appendDigit('3')),
+                        buildKey('4', onTap: () => appendDigit('4')),
+                        buildKey('5', onTap: () => appendDigit('5')),
+                        buildKey('6', onTap: () => appendDigit('6')),
+                        buildKey('7', onTap: () => appendDigit('7')),
+                        buildKey('8', onTap: () => appendDigit('8')),
+                        buildKey('9', onTap: () => appendDigit('9')),
+                        buildKey('C', onTap: clearAll),
+                        buildKey('0', onTap: () => appendDigit('0')),
+                        buildKey(
+                          '',
+                          onTap: backspace,
+                          icon: Icons.backspace_outlined,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: const Text('Hủy'),
+                ),
+                ElevatedButton(
+                  onPressed: confirm,
+                  child: const Text('Cập nhật'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final currencyFormat = NumberFormat.currency(locale: 'vi_VN', symbol: '₫');
@@ -646,11 +792,21 @@ class _CartItemTile extends ConsumerWidget {
                         .updateQuantity(item.product.id, item.quantity - 1);
                   },
                 ),
-                Text(
-                  '${item.quantity.toInt()}',
-                  style: TextStyle(
-                    fontSize: 16.sp,
-                    fontWeight: FontWeight.bold,
+                InkWell(
+                  onTap: () => _showQuantityKeypad(context, ref),
+                  borderRadius: BorderRadius.circular(8.r),
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 8.w,
+                      vertical: 4.h,
+                    ),
+                    child: Text(
+                      '${item.quantity.toInt()}',
+                      style: TextStyle(
+                        fontSize: 16.sp,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
                 ),
                 IconButton(
