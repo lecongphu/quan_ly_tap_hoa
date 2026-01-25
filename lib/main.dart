@@ -10,6 +10,7 @@ import 'features/pos/screens/pos_screen.dart';
 import 'features/inventory/screens/inventory_management_screen.dart';
 import 'features/product/screens/product_management_screen.dart';
 import 'features/debt/screens/debt_management_screen.dart';
+import 'features/report/screens/report_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -166,6 +167,16 @@ class _HomeScreen extends ConsumerWidget {
           MaterialPageRoute(
             builder: (context) => const DebtManagementScreen(),
           ),
+        ),
+      ),
+      _QuickActionItem(
+        title: 'Báo cáo',
+        subtitle: 'Xem tổng hợp doanh thu & tồn kho',
+        icon: Icons.analytics_rounded,
+        color: const Color(0xFF9333EA),
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const ReportScreen()),
         ),
       ),
     ];
