@@ -3,6 +3,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'tabs/stock_list_tab.dart';
 import 'tabs/purchase_orders_tab.dart';
 import 'tabs/alerts_tab.dart';
+import 'tabs/suppliers_tab.dart';
 
 class InventoryManagementScreen extends StatefulWidget {
   const InventoryManagementScreen({super.key});
@@ -26,6 +27,11 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen>
       icon: Icons.shopping_cart_rounded,
       label: 'Đơn nhập hàng',
       description: 'Quản lý phiếu nhập & NCC',
+    ),
+    _InventoryTabItem(
+      icon: Icons.local_shipping_rounded,
+      label: 'Nhà cung cấp',
+      description: 'Danh bạ đối tác & thông tin liên hệ',
     ),
     _InventoryTabItem(
       icon: Icons.warning_amber_rounded,
@@ -86,6 +92,7 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen>
                     children: const [
                       StockListTab(),
                       PurchaseOrdersTab(),
+                      SuppliersTab(),
                       AlertsTab(),
                     ],
                   ),
