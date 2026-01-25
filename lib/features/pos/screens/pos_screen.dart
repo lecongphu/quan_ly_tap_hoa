@@ -20,6 +20,8 @@ class POSScreen extends ConsumerStatefulWidget {
 class _POSScreenState extends ConsumerState<POSScreen> {
   final _searchController = TextEditingController();
   final _currencyFormat = NumberFormat.currency(locale: 'vi_VN', symbol: '₫');
+  String _selectedStockStatus = 'all';
+  String? _selectedCategoryId;
 
   @override
   void dispose() {
@@ -78,6 +80,7 @@ class _POSScreenState extends ConsumerState<POSScreen> {
   Widget build(BuildContext context) {
     final cartState = ref.watch(cartProvider);
     final productsAsync = ref.watch(productsProvider);
+    final categoriesAsync = ref.watch(categoriesProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -86,15 +89,36 @@ class _POSScreenState extends ConsumerState<POSScreen> {
       body: productsAsync.when(
         data: (products) {
           final query = _searchController.text.trim().toLowerCase();
-          final filteredProducts = query.isEmpty
-              ? products
-              : products
-                    .where(
-                      (p) =>
-                          p.name.toLowerCase().contains(query) ||
-                          (p.barcode?.toLowerCase().contains(query) ?? false),
-                    )
-                    .toList();
+          final matchesQuery = (Product product) =>
+              query.isEmpty ||
+              product.name.toLowerCase().contains(query) ||
+              (product.barcode?.toLowerCase().contains(query) ?? false);
+          final matchesStockStatus = (Product product) {
+            switch (_selectedStockStatus) {
+              case 'in_stock':
+                return !product.isOutOfStock;
+              case 'low_stock':
+                return product.isLowStock;
+              case 'out_of_stock':
+                return product.isOutOfStock;
+              default:
+                return true;
+            }
+          };
+          final matchesCategory = (Product product) =>
+              _selectedCategoryId == null ||
+              product.categoryId == _selectedCategoryId;
+          final filteredProducts = products
+              .where(
+                (product) =>
+                    matchesQuery(product) &&
+                    matchesStockStatus(product) &&
+                    matchesCategory(product),
+              )
+              .toList();
+          final hasActiveFilters =
+              _selectedStockStatus != 'all' || _selectedCategoryId != null;
+          final categories = categoriesAsync.asData?.value ?? const <Category>[];
 
           return LayoutBuilder(
             builder: (context, constraints) {
@@ -148,8 +172,147 @@ class _POSScreenState extends ConsumerState<POSScreen> {
                           message: 'Tải lại danh sách sản phẩm',
                           child: IconButton.filledTonal(
                             icon: const Icon(Icons.refresh),
-                            onPressed: () => ref.invalidate(productsProvider),
+                            onPressed: () {
+                              ref.invalidate(productsProvider);
+                              ref.invalidate(categoriesProvider);
+                            },
                           ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 8.h),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.filter_alt,
+                              size: 16.sp,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
+                            ),
+                            SizedBox(width: 6.w),
+                            Text(
+                              'Bộ lọc nhanh',
+                              style: TextStyle(
+                                fontSize: 12.sp,
+                                fontWeight: FontWeight.w600,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                            const Spacer(),
+                            if (hasActiveFilters)
+                              TextButton.icon(
+                                onPressed: () {
+                                  setState(() {
+                                    _selectedStockStatus = 'all';
+                                    _selectedCategoryId = null;
+                                  });
+                                },
+                                icon: const Icon(Icons.filter_alt_off, size: 16),
+                                label: const Text('Xóa lọc'),
+                              ),
+                          ],
+                        ),
+                        SizedBox(height: 8.h),
+                        Wrap(
+                          spacing: 8.w,
+                          runSpacing: 8.h,
+                          children: [
+                            _POSFilterChip(
+                              label: 'Tất cả',
+                              selected: _selectedStockStatus == 'all',
+                              onSelected: () {
+                                setState(() {
+                                  _selectedStockStatus = 'all';
+                                });
+                              },
+                            ),
+                            _POSFilterChip(
+                              label: 'Còn hàng',
+                              selected: _selectedStockStatus == 'in_stock',
+                              onSelected: () {
+                                setState(() {
+                                  _selectedStockStatus = 'in_stock';
+                                });
+                              },
+                            ),
+                            _POSFilterChip(
+                              label: 'Sắp hết',
+                              selected: _selectedStockStatus == 'low_stock',
+                              onSelected: () {
+                                setState(() {
+                                  _selectedStockStatus = 'low_stock';
+                                });
+                              },
+                            ),
+                            _POSFilterChip(
+                              label: 'Hết hàng',
+                              selected: _selectedStockStatus == 'out_of_stock',
+                              onSelected: () {
+                                setState(() {
+                                  _selectedStockStatus = 'out_of_stock';
+                                });
+                              },
+                            ),
+                            SizedBox(
+                              width: isCompact ? constraints.maxWidth : 240.w,
+                              child: categoriesAsync.when(
+                                data: (_) {
+                                  return DropdownButtonFormField<String?>(
+                                    value: _selectedCategoryId,
+                                    isExpanded: true,
+                                    decoration: InputDecoration(
+                                      labelText: 'Danh mục',
+                                      filled: true,
+                                      fillColor: Theme.of(context)
+                                          .colorScheme
+                                          .surfaceContainerHighest
+                                          .withValues(alpha: 0.3),
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(
+                                          12.r,
+                                        ),
+                                        borderSide: BorderSide.none,
+                                      ),
+                                    ),
+                                    items: [
+                                      const DropdownMenuItem<String?>(
+                                        value: null,
+                                        child: Text('Tất cả danh mục'),
+                                      ),
+                                      ...categories.map(
+                                        (category) =>
+                                            DropdownMenuItem<String?>(
+                                              value: category.id,
+                                              child: Text(category.name),
+                                            ),
+                                      ),
+                                    ],
+                                    onChanged: (value) {
+                                      setState(() {
+                                        _selectedCategoryId = value;
+                                      });
+                                    },
+                                  );
+                                },
+                                loading: () => const LinearProgressIndicator(),
+                                error: (error, stack) => Text(
+                                  'Lỗi tải danh mục',
+                                  style: TextStyle(
+                                    color: Theme.of(context).colorScheme.error,
+                                    fontSize: 12.sp,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -498,6 +661,34 @@ class _EmptyCartState extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _POSFilterChip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onSelected;
+
+  const _POSFilterChip({
+    required this.label,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return FilterChip(
+      label: Text(label),
+      selected: selected,
+      onSelected: (_) => onSelected(),
+      labelStyle: TextStyle(
+        fontSize: 12.sp,
+        fontWeight: FontWeight.w600,
+      ),
+      selectedColor: Theme.of(context).colorScheme.primary.withValues(
+        alpha: 0.15,
       ),
     );
   }
