@@ -169,6 +169,56 @@ class _HomeScreen extends ConsumerWidget {
         ),
       ),
     ];
+    final kpiItems = [
+      _KpiItem(
+        title: 'Doanh thu hôm nay',
+        value: '0 ₫',
+        change: '+0%',
+        icon: Icons.trending_up_rounded,
+        color: const Color(0xFF2563EB),
+      ),
+      _KpiItem(
+        title: 'Đơn bán',
+        value: '0',
+        change: '+0 đơn',
+        icon: Icons.receipt_long_rounded,
+        color: const Color(0xFF0EA5E9),
+      ),
+      _KpiItem(
+        title: 'Tồn kho',
+        value: '0 mặt hàng',
+        change: 'Ổn định',
+        icon: Icons.inventory_2_rounded,
+        color: const Color(0xFF10B981),
+      ),
+      _KpiItem(
+        title: 'Công nợ',
+        value: '0 ₫',
+        change: 'Không biến động',
+        icon: Icons.account_balance_wallet_rounded,
+        color: const Color(0xFFF97316),
+      ),
+    ];
+    final activities = [
+      _ActivityItem(
+        title: 'Kiểm tra tồn kho sáng',
+        subtitle: 'Đối soát kho & hạn sử dụng',
+        time: '08:45',
+        icon: Icons.fact_check_rounded,
+      ),
+      _ActivityItem(
+        title: 'Cập nhật giá bán',
+        subtitle: 'Đồng bộ bảng giá nhóm hàng',
+        time: '10:15',
+        icon: Icons.price_change_rounded,
+      ),
+      _ActivityItem(
+        title: 'Theo dõi công nợ',
+        subtitle: 'Nhắc thu khoản đến hạn',
+        time: '14:00',
+        icon: Icons.notifications_active_rounded,
+      ),
+    ];
 
     return Scaffold(
       appBar: AppBar(
@@ -196,6 +246,11 @@ class _HomeScreen extends ConsumerWidget {
                     : constraints.maxWidth >= 760
                         ? 2
                         : 1;
+            final kpiColumnCount = constraints.maxWidth >= 1500
+                ? 4
+                : constraints.maxWidth >= 1100
+                    ? 2
+                    : 1;
 
             return SingleChildScrollView(
               padding: EdgeInsets.fromLTRB(
@@ -209,6 +264,49 @@ class _HomeScreen extends ConsumerWidget {
                 children: [
                   _HomeHeader(userName: userName),
                   SizedBox(height: 28.h),
+                  Text(
+                    'Tổng quan hôm nay',
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                  SizedBox(height: 12.h),
+                  Text(
+                    'Số liệu vận hành cập nhật theo thời gian thực.',
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                  ),
+                  SizedBox(height: 20.h),
+                  GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: kpiItems.length,
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: kpiColumnCount,
+                      crossAxisSpacing: 18.w,
+                      mainAxisSpacing: 18.h,
+                      childAspectRatio: kpiColumnCount == 1 ? 2.8 : 2.6,
+                    ),
+                    itemBuilder: (context, index) {
+                      return _KpiCard(item: kpiItems[index]);
+                    },
+                  ),
+                  SizedBox(height: 28.h),
+                  Text(
+                    'Lộ trình nghiệp vụ',
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                  SizedBox(height: 12.h),
+                  Text(
+                    'Các phân hệ chính được sắp xếp theo quy trình ERP.',
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                  ),
+                  SizedBox(height: 20.h),
                   Text(
                     'Truy cập nhanh',
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
@@ -236,6 +334,43 @@ class _HomeScreen extends ConsumerWidget {
                     itemBuilder: (context, index) {
                       return _QuickActionCard(item: quickActions[index]);
                     },
+                  ),
+                  SizedBox(height: 28.h),
+                  Text(
+                    'Hoạt động ưu tiên',
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                  SizedBox(height: 12.h),
+                  Text(
+                    'Những nhiệm vụ nên xử lý trong ca làm việc.',
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                  ),
+                  SizedBox(height: 20.h),
+                  Card(
+                    child: Padding(
+                      padding: EdgeInsets.all(20.w),
+                      child: Column(
+                        children: List.generate(activities.length, (index) {
+                          final activity = activities[index];
+                          return Column(
+                            children: [
+                              _ActivityRow(item: activity),
+                              if (index != activities.length - 1)
+                                Divider(
+                                  height: 24.h,
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .outlineVariant,
+                                ),
+                            ],
+                          );
+                        }),
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -494,6 +629,152 @@ class _QuickActionItem {
   final IconData icon;
   final Color color;
   final VoidCallback onTap;
+}
+
+class _KpiItem {
+  const _KpiItem({
+    required this.title,
+    required this.value,
+    required this.change,
+    required this.icon,
+    required this.color,
+  });
+
+  final String title;
+  final String value;
+  final String change;
+  final IconData icon;
+  final Color color;
+}
+
+class _KpiCard extends StatelessWidget {
+  const _KpiCard({required this.item});
+
+  final _KpiItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return Card(
+      child: Padding(
+        padding: EdgeInsets.all(20.w),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: EdgeInsets.all(10.w),
+                  decoration: BoxDecoration(
+                    color: item.color.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Icon(item.icon, color: item.color, size: 22.sp),
+                ),
+                const Spacer(),
+                Container(
+                  padding:
+                      EdgeInsets.symmetric(horizontal: 10.w, vertical: 6.h),
+                  decoration: BoxDecoration(
+                    color: scheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    item.change,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: scheme.onSurfaceVariant,
+                        ),
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 18.h),
+            Text(
+              item.value,
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+            ),
+            SizedBox(height: 6.h),
+            Text(
+              item.title,
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ActivityItem {
+  const _ActivityItem({
+    required this.title,
+    required this.subtitle,
+    required this.time,
+    required this.icon,
+  });
+
+  final String title;
+  final String subtitle;
+  final String time;
+  final IconData icon;
+}
+
+class _ActivityRow extends StatelessWidget {
+  const _ActivityRow({required this.item});
+
+  final _ActivityItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return Row(
+      children: [
+        Container(
+          padding: EdgeInsets.all(10.w),
+          decoration: BoxDecoration(
+            color: scheme.primary.withOpacity(0.12),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Icon(item.icon, color: scheme.primary),
+        ),
+        SizedBox(width: 16.w),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                item.title,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+              SizedBox(height: 4.h),
+              Text(
+                item.subtitle,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+              ),
+            ],
+          ),
+        ),
+        Text(
+          item.time,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: scheme.onSurfaceVariant,
+              ),
+        ),
+      ],
+    );
+  }
 }
 
 class _HighlightItem {
