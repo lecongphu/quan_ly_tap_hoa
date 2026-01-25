@@ -17,12 +17,16 @@ Phần mềm quản lý tạp hóa toàn diện với Flutter + Supabase, hỗ t
   - Functions hỗ trợ (FEFO, giá vốn TB, cảnh báo)
   - Views tối ưu (current_inventory)
 
+- **Modules đã hoàn thành**
+  - **POS System**: Bán hàng nhanh với tìm kiếm, quét mã vạch, thanh toán QR
+  - **Inventory**: Quản lý kho, nhập hàng, theo dõi lô hạn sử dụng (FEFO)
+  - **Debt**: Quản lý công nợ khách hàng, ghi nhận thanh toán
+  - **Reports**: Báo cáo doanh thu, lợi nhuận và tồn kho trực quan
+
 ### 🔨 Đang phát triển
-- POS System (Bán hàng tại quầy)
-- Inventory Management (Quản lý kho)
-- Debt Management (Quản lý công nợ)
-- Reporting (Báo cáo)
-- Real-time Sync (Đồng bộ thời gian thực)
+- Real-time Sync (Đồng bộ thời gian thực tối ưu hơn)
+- In hóa đơn & Xuất Excel
+- Kiểm kho (Stock Take)
 
 ## 📋 Yêu cầu hệ thống
 
@@ -196,10 +200,10 @@ flutter test integration_test/
 
 ## 📝 TODO
 
-- [ ] Implement POS screens
-- [ ] Implement Inventory screens
-- [ ] Implement Debt screens
-- [ ] Implement Reports
+- [x] Implement POS screens
+- [x] Implement Inventory screens
+- [x] Implement Debt screens
+- [x] Implement Reports
 - [ ] Add print invoice functionality
 - [ ] Add Excel export
 - [ ] Add stock take feature
