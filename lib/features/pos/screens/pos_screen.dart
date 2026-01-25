@@ -83,9 +83,7 @@ class _POSScreenState extends ConsumerState<POSScreen> {
     final categoriesAsync = ref.watch(categoriesProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Bán hàng'),
-      ),
+      appBar: AppBar(title: const Text('Bán hàng')),
       body: productsAsync.when(
         data: (products) {
           final query = _searchController.text.trim().toLowerCase();
@@ -118,13 +116,17 @@ class _POSScreenState extends ConsumerState<POSScreen> {
               .toList();
           final hasActiveFilters =
               _selectedStockStatus != 'all' || _selectedCategoryId != null;
-          final categories = categoriesAsync.asData?.value ?? const <Category>[];
-          final inStockCount =
-              products.where((product) => !product.isOutOfStock).length;
-          final lowStockCount =
-              products.where((product) => product.isLowStock).length;
-          final outOfStockCount =
-              products.where((product) => product.isOutOfStock).length;
+          final categories =
+              categoriesAsync.asData?.value ?? const <Category>[];
+          final inStockCount = products
+              .where((product) => !product.isOutOfStock)
+              .length;
+          final lowStockCount = products
+              .where((product) => product.isLowStock)
+              .length;
+          final outOfStockCount = products
+              .where((product) => product.isOutOfStock)
+              .length;
 
           return LayoutBuilder(
             builder: (context, constraints) {
@@ -163,10 +165,9 @@ class _POSScreenState extends ConsumerState<POSScreen> {
                                 hintText: 'Tìm nhanh (tên hoặc mã vạch)...',
                                 prefixIcon: const Icon(Icons.search),
                                 filled: true,
-                                fillColor: Theme.of(context)
-                                    .colorScheme
-                                    .surface
-                                    .withValues(alpha: 0.9),
+                                fillColor: Theme.of(
+                                  context,
+                                ).colorScheme.surface.withValues(alpha: 0.9),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(14.r),
                                   borderSide: BorderSide.none,
@@ -233,7 +234,10 @@ class _POSScreenState extends ConsumerState<POSScreen> {
                                     _selectedCategoryId = null;
                                   });
                                 },
-                                icon: const Icon(Icons.filter_alt_off, size: 16),
+                                icon: const Icon(
+                                  Icons.filter_alt_off,
+                                  size: 16,
+                                ),
                                 label: const Text('Xóa lọc'),
                               ),
                           ],
@@ -306,11 +310,10 @@ class _POSScreenState extends ConsumerState<POSScreen> {
                                         child: Text('Tất cả danh mục'),
                                       ),
                                       ...categories.map(
-                                        (category) =>
-                                            DropdownMenuItem<String?>(
-                                              value: category.id,
-                                              child: Text(category.name),
-                                            ),
+                                        (category) => DropdownMenuItem<String?>(
+                                          value: category.id,
+                                          child: Text(category.name),
+                                        ),
                                       ),
                                     ],
                                     onChanged: (value) {
@@ -346,8 +349,9 @@ class _POSScreenState extends ConsumerState<POSScreen> {
                                 : '${filteredProducts.length}/${products.length} sản phẩm phù hợp',
                             style: TextStyle(
                               fontSize: 13.sp,
-                              color:
-                                  Theme.of(context).colorScheme.onSurfaceVariant,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -359,10 +363,9 @@ class _POSScreenState extends ConsumerState<POSScreen> {
                               vertical: 6.h,
                             ),
                             decoration: BoxDecoration(
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .primary
-                                  .withValues(alpha: 0.1),
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.primary.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(20.r),
                             ),
                             child: Text(
@@ -370,8 +373,7 @@ class _POSScreenState extends ConsumerState<POSScreen> {
                               style: TextStyle(
                                 fontSize: 11.sp,
                                 fontWeight: FontWeight.w700,
-                                color:
-                                    Theme.of(context).colorScheme.primary,
+                                color: Theme.of(context).colorScheme.primary,
                               ),
                             ),
                           ),
@@ -543,7 +545,8 @@ class _CartSection extends ConsumerWidget {
                   IconButton(
                     icon: const Icon(Icons.delete, color: Colors.white),
                     tooltip: 'Xóa toàn bộ giỏ hàng',
-                    onPressed: () => ref.read(cartProvider.notifier).clearCart(),
+                    onPressed: () =>
+                        ref.read(cartProvider.notifier).clearCart(),
                   ),
               ],
             ),
@@ -552,11 +555,14 @@ class _CartSection extends ConsumerWidget {
             child: cartState.items.isEmpty
                 ? _EmptyCartState(
                     onSuggestProduct: () {
-                      PrimaryScrollController.of(context)?.animateTo(
-                        0,
-                        duration: const Duration(milliseconds: 300),
-                        curve: Curves.easeOut,
-                      );
+                      final controller = PrimaryScrollController.of(context);
+                      if (controller != null && controller.hasClients) {
+                        controller.animateTo(
+                          0,
+                          duration: const Duration(milliseconds: 300),
+                          curve: Curves.easeOut,
+                        );
+                      }
                     },
                   )
                 : ListView.builder(
@@ -592,7 +598,8 @@ class _CartSection extends ConsumerWidget {
                 if (cartState.discountAmount > 0)
                   _SummaryRow(
                     label: 'Giảm giá:',
-                    value: '-${currencyFormat.format(cartState.discountAmount)}',
+                    value:
+                        '-${currencyFormat.format(cartState.discountAmount)}',
                     valueColor: Colors.red,
                   ),
                 Divider(height: 16.h),
@@ -762,13 +769,10 @@ class _POSFilterChip extends StatelessWidget {
       label: Text(label),
       selected: selected,
       onSelected: (_) => onSelected(),
-      labelStyle: TextStyle(
-        fontSize: 12.sp,
-        fontWeight: FontWeight.w600,
-      ),
-      selectedColor: Theme.of(context).colorScheme.primary.withValues(
-        alpha: 0.15,
-      ),
+      labelStyle: TextStyle(fontSize: 12.sp, fontWeight: FontWeight.w600),
+      selectedColor: Theme.of(
+        context,
+      ).colorScheme.primary.withValues(alpha: 0.15),
     );
   }
 }
@@ -793,9 +797,7 @@ class _POSStatCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(16.r),
-        border: Border.all(
-          color: Theme.of(context).colorScheme.outlineVariant,
-        ),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
@@ -829,10 +831,7 @@ class _POSStatCard extends StatelessWidget {
               ),
               Text(
                 value,
-                style: TextStyle(
-                  fontSize: 16.sp,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.bold),
               ),
             ],
           ),
@@ -856,13 +855,13 @@ class _ProductCard extends StatelessWidget {
     final statusColor = product.isOutOfStock
         ? Colors.redAccent
         : product.isLowStock
-            ? Colors.orange
-            : Colors.green;
+        ? Colors.orange
+        : Colors.green;
     final statusLabel = product.isOutOfStock
         ? 'Hết hàng'
         : product.isLowStock
-            ? 'Sắp hết'
-            : 'Còn hàng';
+        ? 'Sắp hết'
+        : 'Còn hàng';
 
     return Card(
       elevation: 1.5,
@@ -949,8 +948,9 @@ class _ProductCard extends StatelessWidget {
                         Icon(
                           Icons.add_circle,
                           size: 18.sp,
-                          color:
-                              product.isOutOfStock ? Colors.grey : statusColor,
+                          color: product.isOutOfStock
+                              ? Colors.grey
+                              : statusColor,
                         ),
                       ],
                     ),
@@ -1127,9 +1127,7 @@ class _CartItemTile extends ConsumerWidget {
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surfaceContainerLow,
         borderRadius: BorderRadius.circular(14.r),
-        border: Border.all(
-          color: Theme.of(context).colorScheme.outlineVariant,
-        ),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

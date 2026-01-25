@@ -9,9 +9,7 @@ class ReportScreen extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Báo cáo'),
-      ),
+      appBar: AppBar(title: const Text('Báo cáo')),
       body: SafeArea(
         child: Padding(
           padding: EdgeInsets.all(24.w),
@@ -21,15 +19,15 @@ class ReportScreen extends StatelessWidget {
               Text(
                 'Tổng hợp báo cáo',
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
+                  fontWeight: FontWeight.w700,
+                ),
               ),
               SizedBox(height: 12.h),
               Text(
                 'Theo dõi doanh thu, tồn kho và hiệu suất bán hàng theo ngày/tuần/tháng.',
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyLarge?.copyWith(color: scheme.onSurfaceVariant),
               ),
               SizedBox(height: 24.h),
               Card(
@@ -57,20 +55,14 @@ class ReportScreen extends StatelessWidget {
                           children: [
                             Text(
                               'Báo cáo đang được cập nhật',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .titleMedium
+                              style: Theme.of(context).textTheme.titleMedium
                                   ?.copyWith(fontWeight: FontWeight.w600),
                             ),
                             SizedBox(height: 6.h),
                             Text(
                               'Sớm ra mắt bảng tổng hợp chi tiết và xuất dữ liệu.',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodyMedium
-                                  ?.copyWith(
-                                    color: scheme.onSurfaceVariant,
-                                  ),
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(color: scheme.onSurfaceVariant),
                             ),
                           ],
                         ),
