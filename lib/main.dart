@@ -42,11 +42,11 @@ class MyApp extends ConsumerWidget {
           debugShowCheckedModeBanner: false,
           theme: ThemeData(
             colorScheme: baseScheme,
-            scaffoldBackgroundColor: const Color(0xFFF8FAFC),
+            scaffoldBackgroundColor: const Color(0xFFF4F6FA),
             useMaterial3: true,
             fontFamily: 'Roboto',
             appBarTheme: AppBarTheme(
-              backgroundColor: baseScheme.surface,
+              backgroundColor: Colors.white,
               elevation: 0,
               centerTitle: false,
               titleTextStyle: TextStyle(
@@ -55,11 +55,35 @@ class MyApp extends ConsumerWidget {
                 color: baseScheme.onSurface,
               ),
             ),
+            dividerTheme: DividerThemeData(
+              color: const Color(0xFFE2E8F0),
+              thickness: 1,
+              space: 1,
+            ),
             cardTheme: CardThemeData(
               elevation: 0,
               color: Colors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
+              ),
+            ),
+            navigationRailTheme: NavigationRailThemeData(
+              backgroundColor: Colors.white,
+              indicatorColor: baseScheme.primary.withOpacity(0.12),
+              indicatorShape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+              selectedIconTheme: IconThemeData(color: baseScheme.primary),
+              selectedLabelTextStyle: TextStyle(
+                color: baseScheme.primary,
+                fontWeight: FontWeight.w600,
+              ),
+              unselectedIconTheme: IconThemeData(
+                color: baseScheme.onSurfaceVariant,
+              ),
+              unselectedLabelTextStyle: TextStyle(
+                color: baseScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w500,
               ),
             ),
             elevatedButtonTheme: ElevatedButtonThemeData(
@@ -120,6 +144,37 @@ class _HomeScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authProvider);
     final userName = authState.user?.fullName ?? '';
+
+    final statItems = [
+      _StatItem(
+        label: 'Doanh thu hôm nay',
+        value: '12,4 triệu',
+        change: '+8.2%',
+        icon: Icons.trending_up_rounded,
+        color: const Color(0xFF16A34A),
+      ),
+      _StatItem(
+        label: 'Đơn hàng',
+        value: '86 đơn',
+        change: '+12 đơn',
+        icon: Icons.receipt_long_rounded,
+        color: const Color(0xFF2563EB),
+      ),
+      _StatItem(
+        label: 'Hàng sắp hết',
+        value: '14 sản phẩm',
+        change: 'Cần nhập thêm',
+        icon: Icons.warning_amber_rounded,
+        color: const Color(0xFFF97316),
+      ),
+      _StatItem(
+        label: 'Công nợ',
+        value: '4,8 triệu',
+        change: '3 khoản đến hạn',
+        icon: Icons.account_balance_wallet_rounded,
+        color: const Color(0xFF7C3AED),
+      ),
+    ];
 
     final quickActions = [
       _QuickActionItem(
@@ -196,49 +251,185 @@ class _HomeScreen extends ConsumerWidget {
                     : constraints.maxWidth >= 760
                         ? 2
                         : 1;
+            final showRail = constraints.maxWidth >= 1200;
 
-            return SingleChildScrollView(
-              padding: EdgeInsets.fromLTRB(
-                horizontalPadding,
-                28.h,
-                horizontalPadding,
-                36.h,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _HomeHeader(userName: userName),
-                  SizedBox(height: 28.h),
-                  Text(
-                    'Truy cập nhanh',
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                  ),
-                  SizedBox(height: 12.h),
-                  Text(
-                    'Các tính năng chính được sắp xếp theo luồng vận hành cửa hàng.',
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                  ),
-                  SizedBox(height: 20.h),
-                  GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: quickActions.length,
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: columnCount,
-                      crossAxisSpacing: 18.w,
-                      mainAxisSpacing: 18.h,
-                      childAspectRatio: columnCount == 1 ? 1.55 : 1.25,
-                    ),
-                    itemBuilder: (context, index) {
-                      return _QuickActionCard(item: quickActions[index]);
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (showRail)
+                  _SideNavigation(
+                    onNavigate: (index) {
+                      switch (index) {
+                        case 0:
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const POSScreen(),
+                            ),
+                          );
+                          break;
+                        case 1:
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) =>
+                                  const ProductManagementScreen(),
+                            ),
+                          );
+                          break;
+                        case 2:
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) =>
+                                  const InventoryManagementScreen(),
+                            ),
+                          );
+                          break;
+                        case 3:
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) =>
+                                  const DebtManagementScreen(),
+                            ),
+                          );
+                          break;
+                      }
                     },
                   ),
-                ],
-              ),
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: EdgeInsets.fromLTRB(
+                      horizontalPadding,
+                      28.h,
+                      horizontalPadding,
+                      36.h,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _HomeHeader(userName: userName),
+                        SizedBox(height: 24.h),
+                        Text(
+                          'Tổng quan hôm nay',
+                          style: Theme.of(context)
+                              .textTheme
+                              .headlineSmall
+                              ?.copyWith(fontWeight: FontWeight.w700),
+                        ),
+                        SizedBox(height: 16.h),
+                        GridView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: statItems.length,
+                          gridDelegate:
+                              SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: columnCount,
+                            crossAxisSpacing: 18.w,
+                            mainAxisSpacing: 18.h,
+                            childAspectRatio: columnCount == 1 ? 1.8 : 1.35,
+                          ),
+                          itemBuilder: (context, index) {
+                            return _StatCard(item: statItems[index]);
+                          },
+                        ),
+                        SizedBox(height: 28.h),
+                        Text(
+                          'Truy cập nhanh',
+                          style: Theme.of(context)
+                              .textTheme
+                              .headlineSmall
+                              ?.copyWith(fontWeight: FontWeight.w700),
+                        ),
+                        SizedBox(height: 12.h),
+                        Text(
+                          'Các tính năng chính được sắp xếp theo luồng vận hành cửa hàng.',
+                          style:
+                              Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant,
+                                  ),
+                        ),
+                        SizedBox(height: 20.h),
+                        GridView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: quickActions.length,
+                          gridDelegate:
+                              SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: columnCount,
+                            crossAxisSpacing: 18.w,
+                            mainAxisSpacing: 18.h,
+                            childAspectRatio: columnCount == 1 ? 1.55 : 1.25,
+                          ),
+                          itemBuilder: (context, index) {
+                            return _QuickActionCard(item: quickActions[index]);
+                          },
+                        ),
+                        SizedBox(height: 28.h),
+                        LayoutBuilder(
+                          builder: (context, innerConstraints) {
+                            final secondaryColumns =
+                                innerConstraints.maxWidth >= 1100 ? 2 : 1;
+                            return GridView.count(
+                              crossAxisCount: secondaryColumns,
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              crossAxisSpacing: 18.w,
+                              mainAxisSpacing: 18.h,
+                              childAspectRatio: secondaryColumns == 1 ? 2.2 : 2.6,
+                              children: const [
+                                _SectionCard(
+                                  title: 'Công việc cần chú ý',
+                                  subtitle: 'Nhắc việc ưu tiên trong ngày',
+                                  items: [
+                                    _SectionItem(
+                                      title: 'Nhập thêm 14 mặt hàng sắp hết',
+                                      description:
+                                          'Sữa, mì gói, nước giải khát đang giảm nhanh',
+                                    ),
+                                    _SectionItem(
+                                      title: 'Đối soát công nợ cuối ngày',
+                                      description:
+                                          '3 khoản sắp đến hạn cần liên hệ',
+                                    ),
+                                    _SectionItem(
+                                      title: 'Tạo chương trình khuyến mãi cuối tuần',
+                                      description:
+                                          'Ưu tiên nhóm hàng tồn kho cao',
+                                    ),
+                                  ],
+                                ),
+                                _SectionCard(
+                                  title: 'Hoạt động gần đây',
+                                  subtitle: 'Những thay đổi mới nhất',
+                                  items: [
+                                    _SectionItem(
+                                      title: 'POS #A1024 đã thanh toán',
+                                      description: 'Giá trị: 1.240.000đ',
+                                    ),
+                                    _SectionItem(
+                                      title: 'Nhập kho từ NCC Minh Phát',
+                                      description: '36 sản phẩm • 9.600.000đ',
+                                    ),
+                                    _SectionItem(
+                                      title: 'Cập nhật giá 12 mặt hàng',
+                                      description:
+                                          'Áp dụng từ 08:00 sáng mai',
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             );
           },
         ),
@@ -261,69 +452,62 @@ class _HomeHeader extends StatelessWidget {
       width: double.infinity,
       padding: EdgeInsets.all(28.w),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(28),
-        gradient: const LinearGradient(
-          colors: [Color(0xFF1D4ED8), Color(0xFF2563EB), Color(0xFF38BDF8)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF2563EB).withOpacity(0.28),
-            blurRadius: 32,
-            offset: const Offset(0, 20),
-          ),
-        ],
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
-      child: Wrap(
-        spacing: 24.w,
-        runSpacing: 24.h,
-        alignment: WrapAlignment.spaceBetween,
-        crossAxisAlignment: WrapCrossAlignment.center,
+      child: Row(
         children: [
-          ConstrainedBox(
-            constraints: BoxConstraints(maxWidth: 720.w),
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   'Xin chào, $greetingName 👋',
                   style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                        color: Colors.white,
                         fontWeight: FontWeight.w800,
                       ),
                 ),
                 SizedBox(height: 10.h),
                 Text(
-                  'Theo dõi hoạt động cửa hàng và bắt đầu nhanh các tác vụ quan trọng chỉ với một chạm.',
+                  'Tổng quan nhanh về vận hành cửa hàng và các tác vụ ưu tiên trong ngày.',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: Colors.white.withOpacity(0.92),
+                        color: scheme.onSurfaceVariant,
                         height: 1.4,
                       ),
                 ),
                 SizedBox(height: 20.h),
-                FilledButton.icon(
-                  onPressed: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const POSScreen()),
-                  ),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: scheme.primary,
-                    padding: EdgeInsets.symmetric(horizontal: 22.w, vertical: 18.h),
-                    textStyle: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
+                Wrap(
+                  spacing: 12.w,
+                  runSpacing: 12.h,
+                  children: [
+                    FilledButton.icon(
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const POSScreen(),
                         ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(18),
+                      ),
+                      icon: const Icon(Icons.flash_on_rounded),
+                      label: const Text('Mở POS ngay'),
                     ),
-                  ),
-                  icon: const Icon(Icons.flash_on_rounded),
-                  label: const Text('Mở POS ngay'),
+                    OutlinedButton.icon(
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              const InventoryManagementScreen(),
+                        ),
+                      ),
+                      icon: const Icon(Icons.add_shopping_cart_rounded),
+                      label: const Text('Tạo phiếu nhập'),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
+          SizedBox(width: 20.w),
           _HeaderHighlights(scheme: scheme),
         ],
       ),
@@ -376,9 +560,9 @@ class _HighlightChip extends StatelessWidget {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.16),
+        color: scheme.primary.withOpacity(0.08),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.18)),
+        border: Border.all(color: scheme.primary.withOpacity(0.12)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -386,10 +570,10 @@ class _HighlightChip extends StatelessWidget {
           Container(
             padding: EdgeInsets.all(8.w),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: scheme.primary,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(item.icon, color: scheme.primary),
+            child: Icon(item.icon, color: Colors.white),
           ),
           SizedBox(width: 12.w),
           Column(
@@ -398,7 +582,7 @@ class _HighlightChip extends StatelessWidget {
               Text(
                 item.label,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: Colors.white,
+                      color: scheme.onSurface,
                       fontWeight: FontWeight.w700,
                     ),
               ),
@@ -406,12 +590,253 @@ class _HighlightChip extends StatelessWidget {
               Text(
                 item.description,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Colors.white.withOpacity(0.9),
+                      color: scheme.onSurfaceVariant,
                     ),
               ),
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _SideNavigation extends StatelessWidget {
+  const _SideNavigation({required this.onNavigate});
+
+  final ValueChanged<int> onNavigate;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 240.w,
+      padding: EdgeInsets.symmetric(vertical: 24.h),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(
+          right: BorderSide(
+            color: Theme.of(context).dividerTheme.color ?? Colors.white,
+          ),
+        ),
+      ),
+      child: Column(
+        children: [
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 20.w),
+            child: Row(
+              children: [
+                Container(
+                  width: 44.w,
+                  height: 44.w,
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primary,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: const Icon(Icons.storefront_rounded, color: Colors.white),
+                ),
+                SizedBox(width: 12.w),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'ERP Mini',
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                      ),
+                      Text(
+                        'Bảng điều khiển',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant,
+                            ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(height: 20.h),
+          Expanded(
+            child: NavigationRail(
+              selectedIndex: 0,
+              onDestinationSelected: onNavigate,
+              labelType: NavigationRailLabelType.all,
+              destinations: const [
+                NavigationRailDestination(
+                  icon: Icon(Icons.point_of_sale),
+                  label: Text('Bán hàng'),
+                ),
+                NavigationRailDestination(
+                  icon: Icon(Icons.category_rounded),
+                  label: Text('Sản phẩm'),
+                ),
+                NavigationRailDestination(
+                  icon: Icon(Icons.inventory_2_rounded),
+                  label: Text('Kho hàng'),
+                ),
+                NavigationRailDestination(
+                  icon: Icon(Icons.account_balance_wallet_rounded),
+                  label: Text('Công nợ'),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 16.h),
+            child: OutlinedButton.icon(
+              onPressed: () {},
+              icon: const Icon(Icons.support_agent_rounded),
+              label: const Text('Hỗ trợ nhanh'),
+              style: OutlinedButton.styleFrom(
+                minimumSize: Size(double.infinity, 48.h),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatCard extends StatelessWidget {
+  const _StatCard({required this.item});
+
+  final _StatItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: EdgeInsets.all(20.w),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: EdgeInsets.all(10.w),
+                  decoration: BoxDecoration(
+                    color: item.color.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Icon(item.icon, color: item.color, size: 24.sp),
+                ),
+                const Spacer(),
+                Text(
+                  item.change,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: item.color,
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
+              ],
+            ),
+            SizedBox(height: 16.h),
+            Text(
+              item.label,
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+            ),
+            SizedBox(height: 8.h),
+            Text(
+              item.value,
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SectionCard extends StatelessWidget {
+  const _SectionCard({
+    required this.title,
+    required this.subtitle,
+    required this.items,
+  });
+
+  final String title;
+  final String subtitle;
+  final List<_SectionItem> items;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: EdgeInsets.all(22.w),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
+            SizedBox(height: 6.h),
+            Text(
+              subtitle,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+            ),
+            SizedBox(height: 16.h),
+            ...items.map(
+              (item) => Padding(
+                padding: EdgeInsets.only(bottom: 14.h),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 10.w,
+                      height: 10.w,
+                      margin: EdgeInsets.only(top: 6.h),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primary,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                    SizedBox(width: 12.w),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            item.title,
+                            style:
+                                Theme.of(context).textTheme.titleMedium?.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                          ),
+                          SizedBox(height: 4.h),
+                          Text(
+                            item.description,
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodyMedium
+                                ?.copyWith(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSurfaceVariant,
+                                ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -494,6 +919,29 @@ class _QuickActionItem {
   final IconData icon;
   final Color color;
   final VoidCallback onTap;
+}
+
+class _StatItem {
+  const _StatItem({
+    required this.label,
+    required this.value,
+    required this.change,
+    required this.icon,
+    required this.color,
+  });
+
+  final String label;
+  final String value;
+  final String change;
+  final IconData icon;
+  final Color color;
+}
+
+class _SectionItem {
+  const _SectionItem({required this.title, required this.description});
+
+  final String title;
+  final String description;
 }
 
 class _HighlightItem {
