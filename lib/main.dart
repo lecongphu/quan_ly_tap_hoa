@@ -281,28 +281,6 @@ class _HomeScreen extends ConsumerWidget {
                           fontWeight: FontWeight.w700,
                         ),
                   ),
-                  SizedBox(height: 12.h),
-                  Text(
-                    'Số liệu vận hành cập nhật theo thời gian thực.',
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                  ),
-                  SizedBox(height: 20.h),
-                  GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: kpiItems.length,
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: kpiColumnCount,
-                      crossAxisSpacing: 18.w,
-                      mainAxisSpacing: 18.h,
-                      childAspectRatio: kpiColumnCount == 1 ? 2.8 : 2.6,
-                    ),
-                    itemBuilder: (context, index) {
-                      return _KpiCard(item: kpiItems[index]);
-                    },
-                  ),
                   SizedBox(height: 28.h),
                   Text(
                     'Lộ trình nghiệp vụ',
