@@ -119,9 +119,6 @@ class _HomeScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final authState = ref.watch(authProvider);
-    final userName = authState.user?.fullName ?? '';
-
     final quickActions = [
       _QuickActionItem(
         title: 'Bán hàng',
@@ -215,8 +212,6 @@ class _HomeScreen extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _HomeHeader(userName: userName),
-
                   Text(
                     'Truy cập nhanh',
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
@@ -250,179 +245,6 @@ class _HomeScreen extends ConsumerWidget {
             );
           },
         ),
-      ),
-    );
-  }
-}
-
-class _HomeHeader extends StatelessWidget {
-  const _HomeHeader({required this.userName});
-
-  final String userName;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final greetingName = userName.isEmpty ? 'bạn' : userName;
-
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.all(28.w),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(28),
-        gradient: const LinearGradient(
-          colors: [Color(0xFF1D4ED8), Color(0xFF2563EB), Color(0xFF38BDF8)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF2563EB).withOpacity(0.28),
-            blurRadius: 32,
-            offset: const Offset(0, 20),
-          ),
-        ],
-      ),
-      child: Wrap(
-        spacing: 24.w,
-        runSpacing: 24.h,
-        alignment: WrapAlignment.spaceBetween,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        children: [
-          ConstrainedBox(
-            constraints: BoxConstraints(maxWidth: 720.w),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Xin chào, $greetingName 👋',
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                SizedBox(height: 10.h),
-                Text(
-                  'Theo dõi hoạt động cửa hàng và bắt đầu nhanh các tác vụ quan trọng chỉ với một chạm.',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: Colors.white.withOpacity(0.92),
-                    height: 1.4,
-                  ),
-                ),
-                SizedBox(height: 20.h),
-                FilledButton.icon(
-                  onPressed: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const POSScreen()),
-                  ),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: scheme.primary,
-                    padding: EdgeInsets.symmetric(
-                      horizontal: 22.w,
-                      vertical: 18.h,
-                    ),
-                    textStyle: Theme.of(context).textTheme.titleMedium
-                        ?.copyWith(fontWeight: FontWeight.w700),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                  ),
-                  icon: const Icon(Icons.flash_on_rounded),
-                  label: const Text('Mở POS ngay'),
-                ),
-              ],
-            ),
-          ),
-          _HeaderHighlights(scheme: scheme),
-        ],
-      ),
-    );
-  }
-}
-
-class _HeaderHighlights extends StatelessWidget {
-  const _HeaderHighlights({required this.scheme});
-
-  final ColorScheme scheme;
-
-  @override
-  Widget build(BuildContext context) {
-    final items = [
-      _HighlightItem(
-        label: 'Bán hàng',
-        description: 'Xử lý đơn trong vài giây',
-        icon: Icons.bolt_rounded,
-      ),
-      _HighlightItem(
-        label: 'Kho hàng',
-        description: 'Tồn kho luôn cập nhật',
-        icon: Icons.inventory_rounded,
-      ),
-      _HighlightItem(
-        label: 'Công nợ',
-        description: 'Theo dõi thu chi rõ ràng',
-        icon: Icons.receipt_long_rounded,
-      ),
-    ];
-
-    return Wrap(
-      spacing: 12.w,
-      runSpacing: 12.h,
-      children: items
-          .map((item) => _HighlightChip(item: item, scheme: scheme))
-          .toList(),
-    );
-  }
-}
-
-class _HighlightChip extends StatelessWidget {
-  const _HighlightChip({required this.item, required this.scheme});
-
-  final _HighlightItem item;
-  final ColorScheme scheme;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.16),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.18)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            padding: EdgeInsets.all(8.w),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(item.icon, color: scheme.primary),
-          ),
-          SizedBox(width: 12.w),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                item.label,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              SizedBox(height: 2.h),
-              Text(
-                item.description,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Colors.white.withOpacity(0.9),
-                ),
-              ),
-            ],
-          ),
-        ],
       ),
     );
   }
@@ -505,16 +327,4 @@ class _QuickActionItem {
   final IconData icon;
   final Color color;
   final VoidCallback onTap;
-}
-
-class _HighlightItem {
-  const _HighlightItem({
-    required this.label,
-    required this.description,
-    required this.icon,
-  });
-
-  final String label;
-  final String description;
-  final IconData icon;
 }

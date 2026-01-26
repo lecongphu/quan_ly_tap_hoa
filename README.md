@@ -2,6 +2,8 @@
 
 Phần mềm quản lý tạp hóa toàn diện với Flutter + Supabase, hỗ trợ Windows Desktop, Android và iOS.
 
+![Giao diện chính](docs/images/home_screen.png)
+
 ## 🚀 Tính năng
 
 ### ✅ Đã hoàn thành
