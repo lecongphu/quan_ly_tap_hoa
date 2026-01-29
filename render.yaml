@@ -1,0 +1,19 @@
+﻿services:
+  - type: web
+    name: quan-ly-tap-hoa-backend
+    runtime: node
+    rootDir: web/backend
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /health
+
+  - type: web
+    name: quan-ly-tap-hoa-frontend
+    runtime: static
+    rootDir: web/frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist/quan-ly-tap-hoa-web
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html

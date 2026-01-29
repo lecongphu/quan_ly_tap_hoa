@@ -1,0 +1,32 @@
+﻿<header class="app-bar">
+  <div class="app-title">Quản lý Tạp hóa</div>
+  <button class="btn btn-secondary" (click)="logout()">
+    <span class="material-icons">logout</span>
+    Đăng xuất
+  </button>
+</header>
+
+<main class="page">
+  <h2>Truy cập nhanh</h2>
+  <p class="text-muted">
+    Các tính năng chính được sắp xếp theo luồng vận hành cửa hàng.
+  </p>
+
+  <div class="quick-grid">
+    <a
+      class="quick-card"
+      *ngFor="let action of quickActions"
+      [routerLink]="action.route"
+    >
+      <div class="icon" [style.backgroundColor]="action.color + '1f'">
+        <span class="material-icons" [style.color]="action.color">{{ action.icon }}</span>
+      </div>
+      <h3>{{ action.title }}</h3>
+      <p>{{ action.subtitle }}</p>
+      <div class="link" [style.color]="action.color">
+        Mở tính năng
+        <span class="material-icons">arrow_forward</span>
+      </div>
+    </a>
+  </div>
+</main>

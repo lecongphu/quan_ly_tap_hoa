@@ -1,0 +1,97 @@
+﻿.login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #2563eb, #0ea5e9);
+  padding: 24px;
+}
+
+.login-card {
+  width: min(520px, 100%);
+  background: #fff;
+  border-radius: 18px;
+  padding: 40px;
+  box-shadow: 0 20px 45px rgba(15, 23, 42, 0.25);
+  text-align: center;
+}
+
+.logo {
+  width: 80px;
+  height: 80px;
+  margin: 0 auto 16px;
+  border-radius: 20px;
+  background: rgba(37, 99, 235, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #2563eb;
+  font-size: 40px;
+}
+
+h1 {
+  margin: 0 0 6px;
+  font-size: 28px;
+  font-weight: 800;
+}
+
+.subtitle {
+  margin: 0 0 28px;
+  color: #64748b;
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  text-align: left;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.field small {
+  color: #ef4444;
+  font-weight: 500;
+}
+
+.password {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.icon-btn {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: #64748b;
+}
+
+.submit {
+  justify-content: center;
+}
+
+.error {
+  color: #ef4444;
+  text-align: center;
+  margin: 0;
+}
+
+.version {
+  text-align: center;
+  color: #94a3b8;
+  margin: 0;
+  font-size: 13px;
+}
+
+@media (max-width: 600px) {
+  .login-card {
+    padding: 28px;
+  }
+}

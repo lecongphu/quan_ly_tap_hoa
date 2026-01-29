@@ -1,0 +1,135 @@
+<header class="app-bar">
+  <div class="app-title">Quản lý Khách hàng</div>
+  <div class="actions">
+    <button class="btn btn-outline" (click)="goBack()">
+      <span class="material-icons">arrow_back</span>
+      Quay lại
+    </button>
+    <button class="btn btn-outline" (click)="goHome()">
+      <span class="material-icons">home</span>
+      Trang chủ
+    </button>
+    <button class="btn btn-secondary" (click)="loadCustomers()">
+      <span class="material-icons">refresh</span>
+      Làm mới
+    </button>
+    <button class="btn btn-primary" (click)="openForm()">
+      <span class="material-icons">person_add</span>
+      Thêm khách hàng
+    </button>
+  </div>
+</header>
+
+<main class="page customers-page">
+  <section class="filter-card">
+    <input
+      class="input"
+      type="text"
+      placeholder="Tìm khách hàng..."
+      [(ngModel)]="searchTerm"
+    />
+    <label class="toggle">
+      <input type="checkbox" [(ngModel)]="showOnlyActive" />
+      Chỉ hiển thị đang hoạt động
+    </label>
+  </section>
+
+  <section *ngIf="customers.length" class="summary">
+    <div>
+      <small>Đang hoạt động</small>
+      <strong>{{ activeCount }}</strong>
+    </div>
+    <div>
+      <small>Ngừng hoạt động</small>
+      <strong>{{ inactiveCount }}</strong>
+    </div>
+    <div>
+      <small>Tổng</small>
+      <strong>{{ customers.length }}</strong>
+    </div>
+  </section>
+
+  <section class="customer-list">
+    <div class="customer-card" *ngFor="let customer of filteredCustomers">
+      <div class="header">
+        <div class="avatar" [class.inactive]="customer.is_active === false">
+          <span class="material-icons">person</span>
+        </div>
+        <div>
+          <h4>{{ customer.name }}</h4>
+          <p *ngIf="customer.phone">{{ customer.phone }}</p>
+        </div>
+        <span class="badge" [class.inactive]="customer.is_active === false">
+          {{ customer.is_active === false ? 'Ngừng hoạt động' : 'Đang hoạt động' }}
+        </span>
+      </div>
+      <div class="info" *ngIf="customer.address">{{ customer.address }}</div>
+      <div class="stats">
+        <div>
+          <small>Nợ hiện tại</small>
+          <strong>{{ formatCurrency(customer.current_debt) }}</strong>
+        </div>
+        <div>
+          <small>Hạn mức</small>
+          <strong>{{ formatCurrency(customer.debt_limit) }}</strong>
+        </div>
+        <div>
+          <small>Còn lại</small>
+          <strong>{{ formatCurrency((customer.debt_limit || 0) - (customer.current_debt || 0)) }}</strong>
+        </div>
+      </div>
+      <div class="card-actions">
+        <button class="btn btn-outline" (click)="openForm(customer)">
+          <span class="material-icons">edit</span>
+          Chỉnh sửa
+        </button>
+        <button class="btn btn-outline" (click)="deleteCustomer(customer)">
+          <span class="material-icons">delete</span>
+          Xóa
+        </button>
+      </div>
+    </div>
+
+    <div class="empty-state" *ngIf="!filteredCustomers.length">
+      <span class="material-icons">person_off</span>
+      <p>Không tìm thấy khách hàng.</p>
+    </div>
+  </section>
+</main>
+
+<div class="overlay" *ngIf="showForm">
+  <div class="dialog">
+    <div class="dialog-header">
+      <h3>{{ editingCustomer ? 'Chỉnh sửa khách hàng' : 'Thêm khách hàng' }}</h3>
+      <button class="icon-btn" (click)="closeForm()">
+        <span class="material-icons">close</span>
+      </button>
+    </div>
+    <div class="dialog-body">
+      <label>
+        Tên khách hàng
+        <input class="input" [(ngModel)]="customerForm.name" />
+      </label>
+      <label>
+        Số điện thoại
+        <input class="input" [(ngModel)]="customerForm.phone" />
+      </label>
+      <label>
+        Địa chỉ
+        <input class="input" [(ngModel)]="customerForm.address" />
+      </label>
+      <label>
+        Hạn mức nợ
+        <input class="input" type="number" [(ngModel)]="customerForm.debt_limit" />
+      </label>
+      <label class="toggle">
+        <input type="checkbox" [(ngModel)]="customerForm.is_active" />
+        Đang hoạt động
+      </label>
+    </div>
+    <div class="dialog-actions">
+      <button class="btn btn-outline" (click)="closeForm()">Hủy</button>
+      <button class="btn btn-primary" (click)="saveCustomer()">Lưu</button>
+    </div>
+  </div>
+</div>

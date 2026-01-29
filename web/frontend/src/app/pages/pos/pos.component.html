@@ -1,0 +1,222 @@
+﻿<header class="app-bar">
+  <div class="app-title">Bán hàng</div>
+  <button class="btn btn-secondary" (click)="loadData()">
+    <span class="material-icons">refresh</span>
+    Làm mới
+  </button>
+</header>
+
+<main class="pos-layout">
+  <section class="products">
+    <div class="search-bar">
+      <input
+        class="input"
+        type="text"
+        placeholder="Tìm nhanh (tên hoặc mã vạch)..."
+        [(ngModel)]="searchTerm"
+      />
+      <button class="btn btn-outline" (click)="searchTerm = ''">
+        <span class="material-icons">close</span>
+        Xóa
+      </button>
+    </div>
+
+    <div class="filters">
+      <div class="filter-row">
+        <span class="material-icons">filter_alt</span>
+        <span>Bộ lọc nhanh</span>
+        <button
+          class="btn btn-secondary"
+          *ngIf="selectedStockStatus !== 'all' || selectedCategoryId"
+          (click)="selectedStockStatus = 'all'; selectedCategoryId = null"
+        >
+          Xóa lọc
+        </button>
+      </div>
+      <div class="filter-chips">
+        <button
+          class="chip"
+          [class.active]="selectedStockStatus === 'all'"
+          (click)="selectedStockStatus = 'all'"
+        >
+          Tất cả
+        </button>
+        <button
+          class="chip"
+          [class.active]="selectedStockStatus === 'in_stock'"
+          (click)="selectedStockStatus = 'in_stock'"
+        >
+          Còn hàng
+        </button>
+        <button
+          class="chip"
+          [class.active]="selectedStockStatus === 'low_stock'"
+          (click)="selectedStockStatus = 'low_stock'"
+        >
+          Sắp hết
+        </button>
+        <button
+          class="chip"
+          [class.active]="selectedStockStatus === 'out_of_stock'"
+          (click)="selectedStockStatus = 'out_of_stock'"
+        >
+          Hết hàng
+        </button>
+        <select class="select" [(ngModel)]="selectedCategoryId">
+          <option [ngValue]="null">Tất cả danh mục</option>
+          <option *ngFor="let category of categories" [ngValue]="category.id">
+            {{ category.name }}
+          </option>
+        </select>
+      </div>
+    </div>
+
+    <div class="stats">
+      <div class="stat-card">
+        <span class="material-icons" style="color:#16a34a">inventory_2</span>
+        <div>
+          <p>Còn hàng</p>
+          <strong>{{ inStockCount }}</strong>
+        </div>
+      </div>
+      <div class="stat-card">
+        <span class="material-icons" style="color:#f59e0b">warning</span>
+        <div>
+          <p>Sắp hết</p>
+          <strong>{{ lowStockCount }}</strong>
+        </div>
+      </div>
+      <div class="stat-card">
+        <span class="material-icons" style="color:#ef4444">remove_circle</span>
+        <div>
+          <p>Hết hàng</p>
+          <strong>{{ outOfStockCount }}</strong>
+        </div>
+      </div>
+    </div>
+
+    <div class="product-grid" *ngIf="filteredProducts.length; else emptyProducts">
+      <div class="product-card" *ngFor="let product of filteredProducts" (click)="addProduct(product)">
+        <div class="product-head">
+          <span class="status" [style.color]="statusColor(product)" [style.backgroundColor]="statusColor(product) + '1f'">
+            {{ statusLabel(product) }}
+          </span>
+        </div>
+        <div class="product-body">
+          <h4>{{ product.name }}</h4>
+          <p class="price">{{ formatCurrency((product.avg_cost_price || 0) * 1.3) }}</p>
+          <div class="meta">
+            <span>{{ (product.total_quantity || 0) | number:'1.0-0' }} {{ product.unit }}</span>
+            <span class="material-icons">add_circle</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <ng-template #emptyProducts>
+      <div class="empty-state">
+        <span class="material-icons">inventory_2</span>
+        <h4>Không tìm thấy sản phẩm</h4>
+        <p>Thử đổi từ khóa hoặc xóa bộ lọc để xem toàn bộ sản phẩm.</p>
+      </div>
+    </ng-template>
+  </section>
+
+  <aside class="cart">
+    <div class="cart-header">
+      <h3>Giỏ hàng</h3>
+      <span>{{ cart.length }} sản phẩm</span>
+    </div>
+
+    <div class="cart-body" *ngIf="cart.length; else emptyCart">
+      <div class="cart-item" *ngFor="let item of cart">
+        <div>
+          <strong>{{ item.product.name }}</strong>
+          <p class="text-muted">{{ formatCurrency(item.unit_price) }}</p>
+        </div>
+        <div class="qty">
+          <button (click)="updateQuantity(item, -1)">-</button>
+          <span>{{ item.quantity }}</span>
+          <button (click)="updateQuantity(item, 1)">+</button>
+        </div>
+        <div class="price">
+          {{ formatCurrency(item.unit_price * item.quantity) }}
+          <button class="icon-btn" (click)="removeItem(item)">
+            <span class="material-icons">delete</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <ng-template #emptyCart>
+      <div class="empty-state small">
+        <span class="material-icons">remove_shopping_cart</span>
+        <p>Giỏ hàng đang trống</p>
+      </div>
+    </ng-template>
+
+    <div class="cart-summary">
+      <div class="row">
+        <span>Tạm tính</span>
+        <strong>{{ formatCurrency(subtotal) }}</strong>
+      </div>
+      <div class="row">
+        <span>Giảm giá</span>
+        <strong>{{ formatCurrency(discountAmount) }}</strong>
+      </div>
+      <div class="row total">
+        <span>Tổng cộng</span>
+        <strong>{{ formatCurrency(finalAmount) }}</strong>
+      </div>
+      <button class="btn btn-primary" (click)="openCheckout()">Thanh toán</button>
+    </div>
+  </aside>
+</main>
+
+<div class="overlay" *ngIf="showPaymentDialog">
+  <div class="dialog">
+    <div class="dialog-header">
+      <h3>Thanh toán</h3>
+      <button class="icon-btn" (click)="closeCheckout()">
+        <span class="material-icons">close</span>
+      </button>
+    </div>
+    <form [formGroup]="paymentForm" (ngSubmit)="confirmCheckout()">
+      <label>
+        Khách hàng
+        <select class="select" formControlName="customer_id">
+          <option value="">Khách lẻ</option>
+          <option *ngFor="let customer of customers" [value]="customer.id">
+            {{ customer.name }}
+          </option>
+        </select>
+      </label>
+      <label>
+        Phương thức
+        <select class="select" formControlName="payment_method">
+          <option value="cash">Tiền mặt</option>
+          <option value="transfer">Chuyển khoản</option>
+          <option value="debt">Ghi nợ</option>
+        </select>
+      </label>
+      <label *ngIf="paymentForm.value.payment_method === 'debt'">
+        Hẹn trả
+        <input class="input" type="date" formControlName="due_date" />
+      </label>
+      <label>
+        Giảm giá
+        <input class="input" type="number" formControlName="discount_amount" />
+      </label>
+      <label>
+        Ghi chú
+        <textarea class="textarea" rows="3" formControlName="notes"></textarea>
+      </label>
+      <div class="dialog-actions">
+        <button type="button" class="btn btn-outline" (click)="closeCheckout()">Hủy</button>
+        <button class="btn btn-primary" type="submit" [disabled]="isCheckingOut">
+          {{ isCheckingOut ? 'Đang xử lý...' : 'Xác nhận' }}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>

@@ -1,0 +1,208 @@
+﻿<header class="app-bar">
+  <div class="app-title">Quản lý Kho</div>
+</header>
+
+<main class="page inventory-page">
+  <section class="header-card">
+    <div>
+      <h2>
+        {{
+          activeTab === 'stock'
+            ? 'Tồn kho'
+            : activeTab === 'purchase'
+            ? 'Đơn nhập hàng'
+            : activeTab === 'suppliers'
+            ? 'Nhà cung cấp'
+            : 'Cảnh báo'
+        }}
+      </h2>
+      <p>
+        {{
+          activeTab === 'stock'
+            ? 'Theo dõi số lượng hiện có.'
+            : activeTab === 'purchase'
+            ? 'Quản lý phiếu nhập & NCC.'
+            : activeTab === 'suppliers'
+            ? 'Danh bạ đối tác & thông tin liên hệ.'
+            : 'Sắp hết hàng & lô cận hạn.'
+        }}
+      </p>
+    </div>
+    <div class="workspace">
+      <div class="icon">
+        <span class="material-icons">inventory_2</span>
+      </div>
+      <div>
+        <small>Không gian làm việc</small>
+        <strong>Kho hàng</strong>
+      </div>
+    </div>
+  </section>
+
+  <nav class="tab-bar">
+    <button [class.active]="activeTab === 'stock'" (click)="activeTab = 'stock'">
+      <span class="material-icons">inventory_2</span>
+      Tồn kho
+    </button>
+    <button [class.active]="activeTab === 'purchase'" (click)="activeTab = 'purchase'">
+      <span class="material-icons">shopping_cart</span>
+      Đơn nhập hàng
+    </button>
+    <button [class.active]="activeTab === 'suppliers'" (click)="activeTab = 'suppliers'">
+      <span class="material-icons">local_shipping</span>
+      Nhà cung cấp
+    </button>
+    <button [class.active]="activeTab === 'alerts'" (click)="activeTab = 'alerts'">
+      <span class="material-icons">warning</span>
+      Cảnh báo
+    </button>
+  </nav>
+
+  <section *ngIf="activeTab === 'stock'" class="tab-content">
+    <div class="filter-card">
+      <input
+        class="input"
+        type="text"
+        placeholder="Tìm kiếm sản phẩm..."
+        [(ngModel)]="searchTerm"
+      />
+      <select class="select" [(ngModel)]="selectedCategoryId">
+        <option [ngValue]="null">Tất cả danh mục</option>
+        <option *ngFor="let category of categories" [ngValue]="category.id">
+          {{ category.name }}
+        </option>
+      </select>
+      <button class="btn btn-outline" (click)="loadStock()">
+        <span class="material-icons">refresh</span>
+        Làm mới
+      </button>
+    </div>
+
+    <div class="table-card" *ngIf="filteredProducts.length; else emptyStock">
+      <table>
+        <thead>
+          <tr>
+            <th>Sản phẩm</th>
+            <th>Barcode</th>
+            <th>Đơn vị</th>
+            <th>Tồn kho</th>
+            <th>Giá vốn</th>
+            <th>Trạng thái</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let product of filteredProducts">
+            <td>{{ product.name }}</td>
+            <td>{{ product.barcode || '-' }}</td>
+            <td>{{ product.unit }}</td>
+            <td>{{ (product.total_quantity || 0) | number:'1.0-0' }}</td>
+            <td>{{ formatCurrency(product.avg_cost_price) }}</td>
+            <td>
+              <span class="badge" [ngClass]="statusClass(product)">
+                {{ statusLabel(product) }}
+              </span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <ng-template #emptyStock>
+      <div class="empty-state">
+        <span class="material-icons">inventory_2</span>
+        <p>Không tìm thấy sản phẩm nào.</p>
+      </div>
+    </ng-template>
+  </section>
+
+  <section *ngIf="activeTab === 'purchase'" class="tab-content">
+    <div class="table-card" *ngIf="purchaseOrders.length; else emptyPurchase">
+      <table>
+        <thead>
+          <tr>
+            <th>Mã đơn</th>
+            <th>Ngày tạo</th>
+            <th>Kho</th>
+            <th>Trạng thái</th>
+            <th>Nhà cung cấp</th>
+            <th>Giá trị</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let order of purchaseOrders">
+            <td>{{ order.order_number }}</td>
+            <td>{{ order.created_at | date: 'dd/MM/yyyy HH:mm' }}</td>
+            <td>{{ order.warehouse || '-' }}</td>
+            <td>{{ order.status }}</td>
+            <td>{{ order.supplier_name || '-' }}</td>
+            <td>{{ formatCurrency(order.total_amount) }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <ng-template #emptyPurchase>
+      <div class="empty-state">
+        <span class="material-icons">inbox</span>
+        <p>Không có đơn nhập hàng nào.</p>
+      </div>
+    </ng-template>
+  </section>
+
+  <section *ngIf="activeTab === 'suppliers'" class="tab-content">
+    <div class="table-card" *ngIf="suppliers.length; else emptySuppliers">
+      <table>
+        <thead>
+          <tr>
+            <th>Mã NCC</th>
+            <th>Tên</th>
+            <th>Điện thoại</th>
+            <th>Email</th>
+            <th>Trạng thái</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let supplier of suppliers">
+            <td>{{ supplier.code }}</td>
+            <td>{{ supplier.name }}</td>
+            <td>{{ supplier.phone || '-' }}</td>
+            <td>{{ supplier.email || '-' }}</td>
+            <td>{{ supplier.is_active ? 'Đang hoạt động' : 'Ngừng' }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <ng-template #emptySuppliers>
+      <div class="empty-state">
+        <span class="material-icons">local_shipping</span>
+        <p>Chưa có nhà cung cấp nào.</p>
+      </div>
+    </ng-template>
+  </section>
+
+  <section *ngIf="activeTab === 'alerts'" class="tab-content">
+    <div class="alert-grid">
+      <div class="card">
+        <h3>Sản phẩm sắp hết</h3>
+        <ul>
+          <li *ngFor="let alert of alerts.lowStock">
+            <strong>{{ alert.product_name || alert.name }}</strong>
+            <span>{{ alert.current_stock || 0 }} / {{ alert.min_stock_level || 0 }} {{ alert.unit || '' }}</span>
+          </li>
+        </ul>
+        <p *ngIf="!alerts.lowStock.length" class="text-muted">Không có cảnh báo tồn kho.</p>
+      </div>
+      <div class="card">
+        <h3>Lô sắp hết hạn</h3>
+        <ul>
+          <li *ngFor="let alert of alerts.nearExpiry">
+            <strong>{{ alert.product_name || alert.name }}</strong>
+            <span>Hết hạn: {{ alert.expiry_date | date: 'dd/MM/yyyy' }}</span>
+          </li>
+        </ul>
+        <p *ngIf="!alerts.nearExpiry.length" class="text-muted">Không có cảnh báo hạn dùng.</p>
+      </div>
+    </div>
+  </section>
+</main>

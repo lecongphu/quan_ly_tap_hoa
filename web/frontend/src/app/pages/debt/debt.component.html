@@ -1,0 +1,332 @@
+﻿<header class="app-bar">
+  <div class="app-title">Quản lý Công nợ</div>
+  <div class="actions">
+    <button class="btn btn-outline" (click)="goBack()">
+      <span class="material-icons">arrow_back</span>
+      Quay lại
+    </button>
+    <button class="btn btn-outline" (click)="goHome()">
+      <span class="material-icons">home</span>
+      Trang chủ
+    </button>
+    <button class="btn btn-secondary" (click)="loadCustomers()">
+      <span class="material-icons">refresh</span>
+      Làm mới
+    </button>
+  </div>
+</header>
+
+<main class="page debt-page">
+  <section class="view-tabs">
+    <button [class.active]="activeTab === 'customers'" (click)="setTab('customers')">
+      <span class="material-icons">groups</span>
+      Tất cả
+    </button>
+    <button [class.active]="activeTab === 'debt'" (click)="setTab('debt')">
+      <span class="material-icons">account_balance_wallet</span>
+      Công nợ
+    </button>
+  </section>
+
+  <section class="filter-card">
+    <input
+      class="input"
+      type="text"
+      placeholder="Tìm khách hàng..."
+      [(ngModel)]="searchTerm"
+    />
+  </section>
+
+  <section *ngIf="activeTab === 'debt' && filteredCustomers.length" class="summary">
+    <span>Tổng công nợ</span>
+    <strong>{{ formatCurrency(totalDebt) }}</strong>
+  </section>
+
+  <section class="customer-list">
+    <div class="customer-card" *ngFor="let customer of filteredCustomers">
+      <div class="header">
+        <div class="avatar" [class.danger]="(customer.current_debt || 0) > 0">
+          <span class="material-icons">person</span>
+        </div>
+        <div>
+          <h4>{{ customer.name }}</h4>
+          <p *ngIf="customer.phone">{{ customer.phone }}</p>
+        </div>
+        <span class="badge" *ngIf="(customer.current_debt || 0) > 0">Đang nợ</span>
+      </div>
+      <div class="info" *ngIf="customer.address">{{ customer.address }}</div>
+      <div class="stats">
+        <div>
+          <small>Nợ hiện tại</small>
+          <strong>{{ formatCurrency(customer.current_debt) }}</strong>
+        </div>
+        <div>
+          <small>Hạn mức</small>
+          <strong>{{ formatCurrency(customer.debt_limit) }}</strong>
+        </div>
+        <div>
+          <small>Còn lại</small>
+          <strong>{{ formatCurrency((customer.debt_limit || 0) - (customer.current_debt || 0)) }}</strong>
+        </div>
+      </div>
+      <div class="card-actions">
+        <div class="primary-actions">
+          <button
+            class="btn btn-primary"
+            *ngIf="activeTab === 'debt'"
+            (click)="openDebtLineForm(customer)"
+          >
+            <span class="material-icons">note_add</span>
+            Thêm nợ
+          </button>
+          <button class="btn btn-outline" (click)="openPaymentForm(customer)">
+            <span class="material-icons">payments</span>
+            Thu nợ
+          </button>
+          <button class="btn btn-outline" (click)="openDetail(customer)">
+            <span class="material-icons">info</span>
+            Chi tiết
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="empty-state" *ngIf="!filteredCustomers.length">
+      <span class="material-icons">person_off</span>
+      <p>Không tìm thấy khách hàng.</p>
+    </div>
+  </section>
+</main>
+
+<div class="overlay" *ngIf="showPaymentForm && selectedCustomer">
+  <div class="dialog">
+    <div class="dialog-header">
+      <h3>{{ editingPayment ? 'Chỉnh sửa thu nợ' : 'Thu nợ' }} - {{ selectedCustomer.name }}</h3>
+      <button class="icon-btn" (click)="closePaymentForm()">
+        <span class="material-icons">close</span>
+      </button>
+    </div>
+    <div class="dialog-body">
+      <div class="payment-summary">
+        <div>
+          <small>Nợ hiện tại</small>
+          <strong>{{ formatCurrency(selectedCustomer.current_debt) }}</strong>
+        </div>
+        <div>
+          <small>Hạn mức</small>
+          <strong>{{ formatCurrency(selectedCustomer.debt_limit) }}</strong>
+        </div>
+      </div>
+      <label>
+        Số tiền thu
+        <input class="input" type="number" [(ngModel)]="paymentForm.amount" />
+      </label>
+      <div class="payment-method">
+        <label>
+          <input type="radio" name="payment_method" value="cash" [(ngModel)]="paymentForm.payment_method" />
+          Tiền mặt
+        </label>
+        <label>
+          <input type="radio" name="payment_method" value="transfer" [(ngModel)]="paymentForm.payment_method" />
+          Chuyển khoản
+        </label>
+      </div>
+      <label>
+        Ghi chú
+        <textarea class="textarea" rows="3" [(ngModel)]="paymentForm.notes"></textarea>
+      </label>
+      <div class="quick-amounts">
+        <button class="btn btn-outline" (click)="setQuickAmount((selectedCustomer.current_debt || 0) / 2)">
+          50%
+        </button>
+        <button class="btn btn-outline" (click)="setQuickAmount(selectedCustomer.current_debt || 0)">
+          100%
+        </button>
+        <button class="btn btn-outline" (click)="setQuickAmount(100000)">
+          100K
+        </button>
+        <button class="btn btn-outline" (click)="setQuickAmount(500000)">
+          500K
+        </button>
+        <button class="btn btn-outline" (click)="setQuickAmount(1000000)">
+          1M
+        </button>
+      </div>
+    </div>
+    <div class="dialog-actions">
+      <button class="btn btn-outline" (click)="closePaymentForm()">Hủy</button>
+      <button class="btn btn-primary" (click)="confirmPayment()">Xác nhận</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" *ngIf="showDetail && selectedCustomer">
+  <div class="dialog dialog-large">
+    <div class="dialog-header">
+      <h3>Chi tiết khách hàng - {{ selectedCustomer.name }}</h3>
+      <button class="icon-btn" (click)="closeDetail()">
+        <span class="material-icons">close</span>
+      </button>
+    </div>
+    <div class="detail-summary">
+      <div>
+        <small>Nợ hiện tại</small>
+        <strong>{{ formatCurrency(selectedCustomer.current_debt) }}</strong>
+      </div>
+      <div>
+        <small>Hạn mức</small>
+        <strong>{{ formatCurrency(selectedCustomer.debt_limit) }}</strong>
+      </div>
+      <div>
+        <small>Còn lại</small>
+        <strong>{{ formatCurrency((selectedCustomer.debt_limit || 0) - (selectedCustomer.current_debt || 0)) }}</strong>
+      </div>
+    </div>
+    <div class="detail-tabs">
+      <button [class.active]="detailTab === 'lines'" (click)="setDetailTabExtended('lines')">Dòng nợ</button>
+      <button [class.active]="detailTab === 'sales'" (click)="setDetailTabExtended('sales')">Hóa đơn</button>
+      <button [class.active]="detailTab === 'payments'" (click)="setDetailTabExtended('payments')">Thanh toán nợ</button>
+    </div>
+    <div class="detail-body">
+      <div *ngIf="isHistoryLoading" class="text-muted">Đang tải dữ liệu...</div>
+
+      <div *ngIf="!isHistoryLoading && detailTab === 'lines'" class="debt-lines">
+        <div class="detail-actions">
+          <button class="btn btn-primary" (click)="openDebtLineForm(selectedCustomer!)">
+            <span class="material-icons">note_add</span>
+            Thêm nợ
+          </button>
+          <span class="text-muted">Chỉ áp dụng cho nợ nhập tay.</span>
+        </div>
+        <div class="debt-line-card" *ngFor="let line of debtLines">
+          <div class="line-header">
+            <div>
+              <strong>{{ line.invoice_number }}</strong>
+              <div class="text-muted">
+                Mua: {{ line.created_at | date: 'dd/MM/yyyy HH:mm' }} ·
+                Hẹn trả: {{ line.due_date ? (line.due_date | date: 'dd/MM/yyyy') : '-' }}
+              </div>
+              <div class="text-muted" *ngIf="line.notes">Ghi chú: {{ line.notes }}</div>
+              <div class="text-muted" *ngIf="!line.items.length">Nợ nhập tay</div>
+            </div>
+            <div class="line-actions">
+              <div class="line-amount">{{ formatCurrency(line.final_amount) }}</div>
+              <div class="inline-actions" *ngIf="canEditDebtLine(line)">
+                <button class="icon-btn" (click)="editDebtLine(line)">
+                  <span class="material-icons">edit</span>
+                </button>
+                <button class="icon-btn danger" (click)="deleteDebtLine(line)">
+                  <span class="material-icons">delete</span>
+                </button>
+              </div>
+            </div>
+          </div>
+          <ul *ngIf="line.items.length">
+            <li *ngFor="let item of line.items">
+              <span>{{ item.product_name }} ({{ item.quantity }} {{ item.unit }})</span>
+              <span>{{ formatCurrency(item.subtotal) }}</span>
+            </li>
+          </ul>
+        </div>
+        <div class="text-muted" *ngIf="!debtLines.length">Chưa có dòng nợ.</div>
+      </div>
+
+      <table *ngIf="!isHistoryLoading && detailTab === 'sales'" class="detail-table">
+        <thead>
+          <tr>
+            <th>Mã hóa đơn</th>
+            <th>Ngày</th>
+            <th>Tổng</th>
+            <th>Giảm giá</th>
+            <th>Thành tiền</th>
+            <th>Hẹn trả</th>
+            <th>Thanh toán</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let sale of salesHistory">
+            <td>{{ sale.invoice_number }}</td>
+            <td>{{ sale.created_at | date: 'dd/MM/yyyy HH:mm' }}</td>
+            <td>{{ formatCurrency(sale.total_amount) }}</td>
+            <td>{{ formatCurrency(sale.discount_amount || 0) }}</td>
+            <td>{{ formatCurrency(sale.final_amount) }}</td>
+            <td>{{ sale.due_date ? (sale.due_date | date: 'dd/MM/yyyy') : '-' }}</td>
+            <td>{{ sale.payment_method }}</td>
+          </tr>
+          <tr *ngIf="!salesHistory.length">
+            <td colspan="7" class="text-muted">Chưa có hóa đơn.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <table *ngIf="!isHistoryLoading && detailTab === 'payments'" class="detail-table">
+        <thead>
+          <tr>
+            <th>Ngày</th>
+            <th>Số tiền</th>
+            <th>Phương thức</th>
+            <th>Ghi chú</th>
+            <th>Thao tác</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let payment of paymentHistory">
+            <td>{{ payment.created_at | date: 'dd/MM/yyyy HH:mm' }}</td>
+            <td>{{ formatCurrency(payment.amount) }}</td>
+            <td>{{ payment.payment_method }}</td>
+            <td>{{ payment.notes || '-' }}</td>
+            <td>
+              <button class="icon-btn" (click)="editPayment(payment)">
+                <span class="material-icons">edit</span>
+              </button>
+              <button class="icon-btn danger" (click)="deletePayment(payment)">
+                <span class="material-icons">delete</span>
+              </button>
+            </td>
+          </tr>
+          <tr *ngIf="!paymentHistory.length">
+            <td colspan="5" class="text-muted">Chưa có thanh toán.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" *ngIf="showDebtLineForm && selectedCustomer">
+  <div class="dialog">
+    <div class="dialog-header">
+      <h3>
+        {{ editingDebtLine ? 'Chỉnh sửa nợ' : 'Thêm nợ' }} - {{ selectedCustomer.name }}
+      </h3>
+      <button class="icon-btn" (click)="closeDebtLineForm()">
+        <span class="material-icons">close</span>
+      </button>
+    </div>
+    <div class="dialog-body">
+      <label>
+        Số tiền nợ
+        <input class="input" type="number" [(ngModel)]="debtLineForm.amount" />
+      </label>
+      <label>
+        Ngày mua
+        <input class="input" type="date" [(ngModel)]="debtLineForm.purchase_date" />
+      </label>
+      <label>
+        Hẹn trả
+        <input class="input" type="date" [(ngModel)]="debtLineForm.due_date" />
+      </label>
+      <label>
+        Ghi chú
+        <textarea class="textarea" rows="3" [(ngModel)]="debtLineForm.notes"></textarea>
+      </label>
+      <div class="text-muted">
+        Áp dụng cho nợ nhập tay. Hóa đơn bán hàng sẽ không chỉnh sửa ở đây.
+      </div>
+    </div>
+    <div class="dialog-actions">
+      <button class="btn btn-outline" (click)="closeDebtLineForm()">Hủy</button>
+      <button class="btn btn-primary" (click)="saveDebtLine()">Lưu</button>
+    </div>
+  </div>
+</div>

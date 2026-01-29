@@ -1,0 +1,54 @@
+﻿.page h2 {
+  margin-bottom: 6px;
+}
+
+.quick-grid {
+  margin-top: 20px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 18px;
+}
+
+.quick-card {
+  background: #fff;
+  border-radius: 20px;
+  padding: 22px;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  box-shadow: var(--shadow-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.quick-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow);
+}
+
+.quick-card .icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+}
+
+.quick-card h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.quick-card p {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.quick-card .link {
+  margin-top: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+}

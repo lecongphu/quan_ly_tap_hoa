@@ -1,0 +1,151 @@
+﻿<header class="app-bar">
+  <div class="app-title">Quản lý Sản phẩm</div>
+  <button class="btn btn-primary" (click)="openForm()">
+    <span class="material-icons">add</span>
+    Thêm sản phẩm
+  </button>
+</header>
+
+<main class="page products-page">
+  <section class="header-hero">
+    <div>
+      <h2>Danh mục sản phẩm</h2>
+      <p>Theo dõi trạng thái kinh doanh, cập nhật nhanh thông tin hàng hóa.</p>
+    </div>
+    <div class="metrics">
+      <div class="metric">
+        <span class="material-icons">inventory_2</span>
+        <div>
+          <small>Tổng sản phẩm</small>
+          <strong>{{ products.length }}</strong>
+        </div>
+      </div>
+      <div class="metric">
+        <span class="material-icons">check_circle</span>
+        <div>
+          <small>Đang hoạt động</small>
+          <strong>{{ totalActive }}</strong>
+        </div>
+      </div>
+      <div class="metric">
+        <span class="material-icons">pause_circle</span>
+        <div>
+          <small>Tạm ngưng</small>
+          <strong>{{ totalInactive }}</strong>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="filter-card">
+    <input
+      class="input"
+      type="text"
+      placeholder="Tìm kiếm theo tên hoặc mã sản phẩm..."
+      [(ngModel)]="searchTerm"
+    />
+    <select class="select" [(ngModel)]="selectedCategoryId">
+      <option [ngValue]="null">Tất cả danh mục</option>
+      <option *ngFor="let category of categories" [ngValue]="category.id">
+        {{ category.name }}
+      </option>
+    </select>
+    <div class="actions">
+      <button class="btn btn-outline" (click)="loadData()">
+        <span class="material-icons">refresh</span>
+        Làm mới
+      </button>
+    </div>
+  </section>
+
+  <section class="table-card" *ngIf="filteredProducts.length; else emptyState">
+    <table>
+      <thead>
+        <tr>
+          <th>Mã sản phẩm</th>
+          <th>Tên sản phẩm</th>
+          <th>Danh mục</th>
+          <th>Đơn vị</th>
+          <th>Tồn tối thiểu</th>
+          <th>Trạng thái</th>
+          <th>Thao tác</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let product of filteredProducts">
+          <td>{{ product.barcode || '-' }}</td>
+          <td>{{ product.name }}</td>
+          <td>{{ product.category_name || '-' }}</td>
+          <td>{{ product.unit }}</td>
+          <td>{{ product.min_stock_level || 0 }}</td>
+          <td>
+            <span class="badge" [class.active]="product.is_active">{{ product.is_active ? 'Hoạt động' : 'Ngừng' }}</span>
+          </td>
+          <td>
+            <button class="icon-btn" (click)="openForm(product)">
+              <span class="material-icons">edit</span>
+            </button>
+            <button class="icon-btn danger" (click)="deleteProduct(product)">
+              <span class="material-icons">delete</span>
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <ng-template #emptyState>
+    <div class="empty-state">
+      <span class="material-icons">inventory_2</span>
+      <h4>Chưa có sản phẩm</h4>
+      <p>Hãy thêm sản phẩm đầu tiên để bắt đầu quản lý.</p>
+      <button class="btn btn-primary" (click)="openForm()">Thêm sản phẩm mới</button>
+    </div>
+  </ng-template>
+</main>
+
+<div class="overlay" *ngIf="showForm">
+  <div class="dialog">
+    <div class="dialog-header">
+      <h3>{{ editingProduct ? 'Chỉnh sửa sản phẩm' : 'Thêm sản phẩm' }}</h3>
+      <button class="icon-btn" (click)="closeForm()">
+        <span class="material-icons">close</span>
+      </button>
+    </div>
+    <div class="dialog-body">
+      <label>
+        Tên sản phẩm
+        <input class="input" [(ngModel)]="formData.name" />
+      </label>
+      <label>
+        Barcode
+        <input class="input" [(ngModel)]="formData.barcode" />
+      </label>
+      <label>
+        Danh mục
+        <select class="select" [(ngModel)]="formData.category_id">
+          <option [ngValue]="null">Chưa phân loại</option>
+          <option *ngFor="let category of categories" [ngValue]="category.id">
+            {{ category.name }}
+          </option>
+        </select>
+      </label>
+      <label>
+        Đơn vị
+        <input class="input" [(ngModel)]="formData.unit" />
+      </label>
+      <label>
+        Tồn tối thiểu
+        <input class="input" type="number" [(ngModel)]="formData.min_stock_level" />
+      </label>
+      <label class="toggle">
+        <input type="checkbox" [(ngModel)]="formData.is_active" />
+        Đang bán
+      </label>
+    </div>
+    <div class="dialog-actions">
+      <button class="btn btn-outline" (click)="closeForm()">Hủy</button>
+      <button class="btn btn-primary" (click)="saveProduct()">Lưu</button>
+    </div>
+  </div>
+</div>

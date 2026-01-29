@@ -1,0 +1,42 @@
+﻿<div class="login-page">
+  <div class="login-card">
+    <div class="logo">
+      <span class="material-icons">store</span>
+    </div>
+    <h1>{{ appName }}</h1>
+    <p class="subtitle">Đăng nhập để tiếp tục</p>
+
+    <form [formGroup]="form" (ngSubmit)="submit()">
+      <label class="field">
+        <span>Email</span>
+        <input class="input" type="email" formControlName="email" placeholder="you@example.com" />
+        <small *ngIf="form.get('email')?.touched && form.get('email')?.invalid">
+          Vui lòng nhập email hợp lệ
+        </small>
+      </label>
+
+      <label class="field">
+        <span>Mật khẩu</span>
+        <div class="password">
+          <input class="input" [type]="hidePassword ? 'password' : 'text'" formControlName="password" placeholder="******" />
+          <button type="button" class="icon-btn" (click)="hidePassword = !hidePassword">
+            <span class="material-icons">{{ hidePassword ? 'visibility' : 'visibility_off' }}</span>
+          </button>
+        </div>
+        <small *ngIf="form.get('password')?.touched && form.get('password')?.invalid">
+          Mật khẩu tối thiểu 6 ký tự
+        </small>
+      </label>
+
+      <button class="btn btn-primary submit" type="submit" [disabled]="isLoading">
+        <span class="material-icons" *ngIf="!isLoading">login</span>
+        <span *ngIf="isLoading">Đang đăng nhập...</span>
+        <span *ngIf="!isLoading">Đăng nhập</span>
+      </button>
+
+      <p class="error" *ngIf="errorMessage">{{ errorMessage }}</p>
+
+      <p class="version">Version {{ version }}</p>
+    </form>
+  </div>
+</div>
