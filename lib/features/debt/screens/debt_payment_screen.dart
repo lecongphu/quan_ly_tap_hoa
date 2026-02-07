@@ -148,25 +148,6 @@ class _DebtPaymentScreenState extends ConsumerState<DebtPaymentScreen> {
                             ),
                           ],
                         ),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Text(
-                              'Hạn mức',
-                              style: TextStyle(
-                                fontSize: 14.sp,
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                            Text(
-                              currencyFormat.format(widget.customer.debtLimit),
-                              style: TextStyle(
-                                fontSize: 16.sp,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
                       ],
                     ),
                   ],
@@ -229,23 +210,24 @@ class _DebtPaymentScreenState extends ConsumerState<DebtPaymentScreen> {
                       ),
                     ),
                     SizedBox(height: 8.h),
-                    Radio<String>(
-                      value: AppConstants.paymentCash,
+                    RadioGroup<String>(
                       groupValue: _paymentMethod,
-                      onChanged: (value) =>
-                          setState(() => _paymentMethod = value!),
+                      onChanged: (value) {
+                        if (value == null) return;
+                        setState(() => _paymentMethod = value);
+                      },
+                      child: Row(
+                        children: [
+                          Radio<String>(value: AppConstants.paymentCash),
+                          const SizedBox(width: 8),
+                          const Text('Tiền mặt'),
+                          const SizedBox(width: 24),
+                          Radio<String>(value: AppConstants.paymentTransfer),
+                          const SizedBox(width: 8),
+                          const Text('Chuyển khoản'),
+                        ],
+                      ),
                     ),
-                    const SizedBox(width: 8),
-                    const Text('Tiền mặt'),
-                    const SizedBox(width: 24),
-                    Radio<String>(
-                      value: AppConstants.paymentTransfer,
-                      groupValue: _paymentMethod,
-                      onChanged: (value) =>
-                          setState(() => _paymentMethod = value!),
-                    ),
-                    const SizedBox(width: 8),
-                    const Text('Chuyển khoản'),
 
                     SizedBox(height: 16.h),
 

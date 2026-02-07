@@ -821,7 +821,7 @@ class _CreatePurchaseOrderScreenState
           ),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
-            value: _selectedWarehouse,
+            initialValue: _selectedWarehouse,
             decoration: InputDecoration(
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(4),
@@ -875,7 +875,7 @@ class _CreatePurchaseOrderScreenState
           const Text('Nhân viên phụ trách', style: TextStyle(fontSize: 12)),
           const SizedBox(height: 4),
           DropdownButtonFormField<String>(
-            value: _selectedStaffId,
+            initialValue: _selectedStaffId,
             decoration: InputDecoration(
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(4),

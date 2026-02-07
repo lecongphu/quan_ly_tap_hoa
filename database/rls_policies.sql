@@ -17,6 +17,9 @@ ALTER TABLE sales ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sale_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE debt_payments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE daily_reports ENABLE ROW LEVEL SECURITY;
+ALTER TABLE suppliers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE purchase_orders ENABLE ROW LEVEL SECURITY;
+ALTER TABLE purchase_order_items ENABLE ROW LEVEL SECURITY;
 
 -- ============================================
 -- Helper function to get user role
@@ -94,13 +97,34 @@ CREATE POLICY "Users with pos.sell can view sales"
     ON sales FOR SELECT
     USING (has_permission('pos.sell'));
 
+CREATE POLICY "Users with debt.view can view debt sales"
+    ON sales FOR SELECT
+    USING (has_permission('debt.view') AND payment_method = 'debt');
+
 CREATE POLICY "Users with pos.sell can create sales"
     ON sales FOR INSERT
     WITH CHECK (has_permission('pos.sell'));
 
+CREATE POLICY "Users with debt.edit can create debt sales"
+    ON sales FOR INSERT
+    WITH CHECK (has_permission('debt.edit') AND payment_method = 'debt');
+
+CREATE POLICY "Users with pos.edit_invoice can update sales"
+    ON sales FOR UPDATE
+    USING (has_permission('pos.edit_invoice'));
+
+CREATE POLICY "Users with debt.edit can update debt sales"
+    ON sales FOR UPDATE
+    USING (has_permission('debt.edit') AND payment_method = 'debt')
+    WITH CHECK (has_permission('debt.edit') AND payment_method = 'debt');
+
 CREATE POLICY "Users with pos.delete_invoice can delete sales"
     ON sales FOR DELETE
     USING (has_permission('pos.delete_invoice'));
+
+CREATE POLICY "Users with debt.edit can delete debt sales"
+    ON sales FOR DELETE
+    USING (has_permission('debt.edit') AND payment_method = 'debt');
 
 -- ============================================
 -- SALE ITEMS - Follow sales permissions
@@ -109,6 +133,18 @@ CREATE POLICY "Users with pos.delete_invoice can delete sales"
 CREATE POLICY "Users can view sale items if they can view sales"
     ON sale_items FOR SELECT
     USING (has_permission('pos.sell'));
+
+CREATE POLICY "Users with debt.view can view debt sale items"
+    ON sale_items FOR SELECT
+    USING (
+        has_permission('debt.view')
+        AND EXISTS (
+            SELECT 1
+            FROM sales s
+            WHERE s.id = sale_items.sale_id
+              AND s.payment_method = 'debt'
+        )
+    );
 
 CREATE POLICY "Users can create sale items if they can create sales"
     ON sale_items FOR INSERT
@@ -137,6 +173,14 @@ CREATE POLICY "Users with debt.view can view payments"
 CREATE POLICY "Users with debt.edit can create payments"
     ON debt_payments FOR INSERT
     WITH CHECK (has_permission('debt.edit'));
+
+CREATE POLICY "Users with debt.edit can update payments"
+    ON debt_payments FOR UPDATE
+    USING (has_permission('debt.edit'));
+
+CREATE POLICY "Users with debt.edit can delete payments"
+    ON debt_payments FOR DELETE
+    USING (has_permission('debt.edit'));
 
 -- ============================================
 -- REPORTS - Based on report permissions
@@ -185,6 +229,38 @@ CREATE POLICY "Users with inventory.view can view stock movements"
 CREATE POLICY "System can create stock movements"
     ON stock_movements FOR INSERT
     WITH CHECK (auth.uid() IS NOT NULL);
+
+-- ============================================
+-- SUPPLIERS - Based on inventory permissions
+-- ============================================
+
+CREATE POLICY "Users with inventory.view can view suppliers"
+    ON suppliers FOR SELECT
+    USING (has_permission('inventory.view'));
+
+CREATE POLICY "Users with inventory.edit can modify suppliers"
+    ON suppliers FOR ALL
+    USING (has_permission('inventory.edit'));
+
+-- ============================================
+-- PURCHASE ORDERS - Based on inventory permissions
+-- ============================================
+
+CREATE POLICY "Users with inventory.view can view purchase orders"
+    ON purchase_orders FOR SELECT
+    USING (has_permission('inventory.view'));
+
+CREATE POLICY "Users with inventory.edit can modify purchase orders"
+    ON purchase_orders FOR ALL
+    USING (has_permission('inventory.edit'));
+
+CREATE POLICY "Users with inventory.view can view purchase order items"
+    ON purchase_order_items FOR SELECT
+    USING (has_permission('inventory.view'));
+
+CREATE POLICY "Users with inventory.edit can modify purchase order items"
+    ON purchase_order_items FOR ALL
+    USING (has_permission('inventory.edit'));
 
 -- ============================================
 -- ROLES & PERMISSIONS - Admins only

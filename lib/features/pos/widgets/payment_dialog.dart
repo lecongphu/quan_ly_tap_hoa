@@ -21,14 +21,28 @@ class _PaymentDialogState extends ConsumerState<PaymentDialog> {
   String _paymentMethod = AppConstants.paymentCash;
   final _notesController = TextEditingController();
   final _searchController = TextEditingController();
+  final _discountController = TextEditingController(text: '0');
   Customer? _selectedCustomer;
   String? _qrCodeUrl;
+  DateTime? _dueDate;
 
   @override
   void dispose() {
     _notesController.dispose();
     _searchController.dispose();
+    _discountController.dispose();
     super.dispose();
+  }
+
+  double get _discountAmount {
+    final parsed = double.tryParse(_discountController.text);
+    if (parsed == null || parsed.isNaN) return 0;
+    return parsed;
+  }
+
+  double get _finalAmount {
+    final result = widget.totalAmount - _discountAmount;
+    return result < 0 ? 0 : result;
   }
 
   void _onPaymentMethodChanged(String? value) {
@@ -38,6 +52,7 @@ class _PaymentDialogState extends ConsumerState<PaymentDialog> {
       _paymentMethod = value;
       _selectedCustomer = null;
       _qrCodeUrl = null;
+      _dueDate = null;
 
       // Generate QR code for transfer
       if (value == AppConstants.paymentTransfer) {
@@ -55,8 +70,24 @@ class _PaymentDialogState extends ConsumerState<PaymentDialog> {
 
     _qrCodeUrl =
         '${AppConstants.vietQRBaseUrl}/$bankCode-$accountNumber-${AppConstants.vietQRTemplate}.jpg'
-        '?amount=${widget.totalAmount.toInt()}'
+        '?amount=${_finalAmount.toInt()}'
         '&addInfo=${Uri.encodeComponent(description)}';
+  }
+
+  Future<void> _pickDueDate() async {
+    final now = DateTime.now();
+    final initialDate = _dueDate ?? now;
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initialDate,
+      firstDate: now,
+      lastDate: DateTime(now.year + 5),
+    );
+    if (picked != null) {
+      setState(() {
+        _dueDate = picked;
+      });
+    }
   }
 
   @override
@@ -79,23 +110,24 @@ class _PaymentDialogState extends ConsumerState<PaymentDialog> {
                   color: Theme.of(context).colorScheme.primaryContainer,
                   borderRadius: BorderRadius.circular(8.r),
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                child: Column(
                   children: [
-                    Text(
-                      'Tổng tiền:',
-                      style: TextStyle(
-                        fontSize: 16.sp,
-                        fontWeight: FontWeight.bold,
-                      ),
+                    _AmountRow(
+                      label: 'Tổng tiền',
+                      value: currencyFormat.format(widget.totalAmount),
                     ),
-                    Text(
-                      currencyFormat.format(widget.totalAmount),
-                      style: TextStyle(
-                        fontSize: 20.sp,
-                        fontWeight: FontWeight.bold,
-                        color: Theme.of(context).colorScheme.primary,
+                    if (_discountAmount > 0)
+                      _AmountRow(
+                        label: 'Giảm giá',
+                        value: '-${currencyFormat.format(_discountAmount)}',
+                        valueColor: Colors.red,
                       ),
+                    Divider(height: 16.h),
+                    _AmountRow(
+                      label: 'Thành tiền',
+                      value: currencyFormat.format(_finalAmount),
+                      isBold: true,
+                      valueColor: Theme.of(context).colorScheme.primary,
                     ),
                   ],
                 ),
@@ -109,47 +141,77 @@ class _PaymentDialogState extends ConsumerState<PaymentDialog> {
               ),
               SizedBox(height: 8.h),
 
-              Row(
-                children: [
-                  Radio<String>(
-                    value: AppConstants.paymentCash,
-                    groupValue: _paymentMethod,
-                    onChanged: _onPaymentMethodChanged,
-                  ),
-                  const Text('Tiền mặt'),
-                ],
-              ),
-              Row(
-                children: [
-                  Radio<String>(
-                    value: AppConstants.paymentTransfer,
-                    groupValue: _paymentMethod,
-                    onChanged: _onPaymentMethodChanged,
-                  ),
-                  const Text('Chuyển khoản'),
-                ],
-              ),
-              Row(
-                children: [
-                  Radio<String>(
-                    value: AppConstants.paymentDebt,
-                    groupValue: _paymentMethod,
-                    onChanged: _onPaymentMethodChanged,
-                  ),
-                  const Text('Bán chịu'),
-                ],
+              RadioGroup<String>(
+                groupValue: _paymentMethod,
+                onChanged: _onPaymentMethodChanged,
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        Radio<String>(value: AppConstants.paymentCash),
+                        const Text('Tiền mặt'),
+                      ],
+                    ),
+                    Row(
+                      children: [
+                        Radio<String>(value: AppConstants.paymentTransfer),
+                        const Text('Chuyển khoản'),
+                      ],
+                    ),
+                    Row(
+                      children: [
+                        Radio<String>(value: AppConstants.paymentDebt),
+                        const Text('Bán chịu'),
+                      ],
+                    ),
+                  ],
+                ),
               ),
 
               SizedBox(height: 16.h),
+
+              TextField(
+                controller: _discountController,
+                decoration: const InputDecoration(
+                  labelText: 'Giảm giá',
+                  suffixText: '₫',
+                  border: OutlineInputBorder(),
+                ),
+                keyboardType: TextInputType.number,
+                onChanged: (_) {
+                  setState(() {
+                    if (_paymentMethod == AppConstants.paymentTransfer) {
+                      _generateQRCode();
+                    }
+                  });
+                },
+              ),
+
+              if (_paymentMethod == AppConstants.paymentDebt) ...[
+                SizedBox(height: 12.h),
+                InkWell(
+                  onTap: _pickDueDate,
+                  borderRadius: BorderRadius.circular(8.r),
+                  child: InputDecorator(
+                    decoration: const InputDecoration(
+                      labelText: 'Hẹn trả',
+                      border: OutlineInputBorder(),
+                    ),
+                    child: Text(
+                      _dueDate == null
+                          ? 'Chọn ngày'
+                          : DateFormat('dd/MM/yyyy').format(_dueDate!),
+                    ),
+                  ),
+                ),
+              ],
 
               // QR Code display for transfer
               if (_paymentMethod == AppConstants.paymentTransfer &&
                   _qrCodeUrl != null)
                 _buildQRCodeSection(),
 
-              // Customer selection for debt
-              if (_paymentMethod == AppConstants.paymentDebt)
-                _buildCustomerSelection(),
+              _buildCustomerSelection(),
 
               SizedBox(height: 16.h),
 
@@ -234,12 +296,13 @@ class _PaymentDialogState extends ConsumerState<PaymentDialog> {
 
   Widget _buildCustomerSelection() {
     final customersAsync = ref.watch(customersProvider);
+    final isDebt = _paymentMethod == AppConstants.paymentDebt;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Chọn khách hàng:',
+          isDebt ? 'Chọn khách hàng:' : 'Chọn khách hàng (tùy chọn):',
           style: TextStyle(fontSize: 14.sp, fontWeight: FontWeight.bold),
         ),
         SizedBox(height: 8.h),
@@ -287,52 +350,53 @@ class _PaymentDialogState extends ConsumerState<PaymentDialog> {
                 return const Center(child: Text('Không tìm thấy khách hàng'));
               }
 
-              return ListView.builder(
-                itemCount: filteredCustomers.length,
-                itemBuilder: (context, index) {
-                  final customer = filteredCustomers[index];
-                  final isSelected = _selectedCustomer?.id == customer.id;
-                  final canBorrow = customer.canBorrow(widget.totalAmount);
-
-                  return ListTile(
-                    selected: isSelected,
-                    leading: Radio<String>(
-                      value: customer.id,
-                      groupValue: _selectedCustomer?.id,
-                      onChanged: canBorrow
-                          ? (value) {
-                              setState(() {
-                                _selectedCustomer = customer;
-                              });
-                            }
-                          : null,
-                    ),
-                    title: Text(customer.name),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (customer.phone != null) Text(customer.phone!),
-                        Text(
-                          'Nợ: ${NumberFormat.currency(locale: 'vi_VN', symbol: '₫').format(customer.currentDebt)} / ${NumberFormat.currency(locale: 'vi_VN', symbol: '₫').format(customer.debtLimit)}',
-                          style: TextStyle(
-                            fontSize: 12.sp,
-                            color: canBorrow ? Colors.green : Colors.red,
-                          ),
-                        ),
-                      ],
-                    ),
-                    trailing: !canBorrow
-                        ? const Icon(Icons.warning, color: Colors.red)
-                        : null,
-                    onTap: canBorrow
-                        ? () {
-                            setState(() {
-                              _selectedCustomer = customer;
-                            });
-                          }
-                        : null,
-                  );
+              return RadioGroup<String>(
+                groupValue: _selectedCustomer?.id,
+                onChanged: (value) {
+                  if (value == null) {
+                    setState(() => _selectedCustomer = null);
+                    return;
+                  }
+                  Customer? selected;
+                  for (final customer in filteredCustomers) {
+                    if (customer.id == value) {
+                      selected = customer;
+                      break;
+                    }
+                  }
+                  setState(() => _selectedCustomer = selected);
                 },
+                child: ListView.builder(
+                  itemCount: filteredCustomers.length,
+                  itemBuilder: (context, index) {
+                    final customer = filteredCustomers[index];
+                    final isSelected = _selectedCustomer?.id == customer.id;
+
+                    return ListTile(
+                      selected: isSelected,
+                      leading: Radio<String>(value: customer.id),
+                      title: Text(customer.name),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (customer.phone != null) Text(customer.phone!),
+                          Text(
+                            'Nợ: ${NumberFormat.currency(locale: 'vi_VN', symbol: '₫').format(customer.currentDebt)}',
+                            style: TextStyle(
+                              fontSize: 12.sp,
+                              color: customer.currentDebt > 0
+                                  ? Colors.red
+                                  : Colors.green,
+                            ),
+                          ),
+                        ],
+                      ),
+                      onTap: () => setState(() {
+                        _selectedCustomer = customer;
+                      }),
+                    );
+                  },
+                ),
               );
             },
             loading: () => const Center(child: CircularProgressIndicator()),
@@ -382,6 +446,49 @@ class _PaymentDialogState extends ConsumerState<PaymentDialog> {
       'notes': _notesController.text,
       'customerId': _selectedCustomer?.id,
       'qrCodeData': _qrCodeUrl,
+      'discountAmount': _discountAmount,
+      'dueDate': _dueDate,
     });
+  }
+}
+
+class _AmountRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final bool isBold;
+  final Color? valueColor;
+
+  const _AmountRow({
+    required this.label,
+    required this.value,
+    this.isBold = false,
+    this.valueColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 4.h),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 14.sp,
+              fontWeight: isBold ? FontWeight.bold : FontWeight.w600,
+            ),
+          ),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 15.sp,
+              fontWeight: isBold ? FontWeight.bold : FontWeight.w600,
+              color: valueColor,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

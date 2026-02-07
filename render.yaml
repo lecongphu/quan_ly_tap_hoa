@@ -1,12 +1,4 @@
-﻿services:
-  - type: web
-    name: quan-ly-tap-hoa-backend
-    runtime: node
-    rootDir: web/backend
-    buildCommand: npm ci
-    startCommand: npm start
-    healthCheckPath: /health
-
+services:
   - type: web
     name: quan-ly-tap-hoa-frontend
     runtime: static

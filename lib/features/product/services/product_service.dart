@@ -1,11 +1,8 @@
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/services/supabase_service.dart';
 import '../../inventory/models/product_model.dart';
 
-/// Product service for managing products in Supabase
+/// Product service for managing products via Supabase
 class ProductService {
-  final SupabaseClient _supabase = SupabaseService.instance.client;
-
   /// Create a new product
   Future<Product> createProduct({
     required String name,
@@ -15,7 +12,8 @@ class ProductService {
     double? minStockLevel,
   }) async {
     try {
-      final response = await _supabase
+      final supabase = SupabaseService.client;
+      final data = await supabase
           .from('products')
           .insert({
             'name': name,
@@ -25,10 +23,13 @@ class ProductService {
             'min_stock_level': minStockLevel ?? 0,
             'is_active': true,
           })
-          .select()
+          .select('*, category:categories(name)')
           .single();
 
-      return Product.fromJson(response);
+      return Product.fromJson({
+        ...data,
+        'category_name': (data['category'] as Map?)?['name'],
+      });
     } catch (e) {
       throw Exception('Lỗi khi tạo sản phẩm: ${e.toString()}');
     }
@@ -41,37 +42,56 @@ class ProductService {
     bool? isActive,
   }) async {
     try {
-      var query = _supabase.from('products').select('''
-            *,
-            categories:category_id(id, name)
-          ''');
+      final supabase = SupabaseService.client;
+      final includeInactive = isActive == null ? true : !isActive;
+
+      var query = supabase
+          .from('products')
+          .select('*, category:categories(name)');
+
+      if (!includeInactive) {
+        query = query.eq('is_active', true);
+      }
+
+      final products = await query.order('created_at', ascending: false);
+      final inventoryRows =
+          await supabase.from('current_inventory').select('*');
+
+      final inventoryMap = <String, Map<String, dynamic>>{};
+      for (final row in inventoryRows) {
+        inventoryMap[row['product_id'] as String] =
+            Map<String, dynamic>.from(row as Map);
+      }
+
+      var mapped = (products as List<dynamic>).map((item) {
+        final product = Map<String, dynamic>.from(item as Map);
+        final inventory = inventoryMap[product['id'] as String];
+        return Product.fromJson({
+          ...product,
+          'category_name': (product['category'] as Map?)?['name'],
+          'total_quantity': inventory?['total_quantity'],
+          'avg_cost_price': inventory?['avg_cost_price'],
+          'nearest_expiry_date': inventory?['nearest_expiry_date'],
+        });
+      }).toList();
 
       if (searchQuery != null && searchQuery.isNotEmpty) {
-        query = query.or(
-          'name.ilike.%$searchQuery%,barcode.ilike.%$searchQuery%',
-        );
+        final queryLower = searchQuery.toLowerCase();
+        mapped = mapped.where((product) {
+          return product.name.toLowerCase().contains(queryLower) ||
+              (product.barcode?.toLowerCase().contains(queryLower) ?? false);
+        }).toList();
       }
 
       if (categoryId != null) {
-        query = query.eq('category_id', categoryId);
+        mapped = mapped.where((product) => product.categoryId == categoryId).toList();
       }
 
       if (isActive != null) {
-        query = query.eq('is_active', isActive);
+        mapped = mapped.where((product) => product.isActive == isActive).toList();
       }
 
-      final response = await query.order('name');
-
-      return (response as List).map((item) {
-        final data = Map<String, dynamic>.from(item);
-
-        // Extract category name
-        if (data['categories'] != null) {
-          data['category_name'] = data['categories']['name'];
-        }
-
-        return Product.fromJson(data);
-      }).toList();
+      return mapped;
     } catch (e) {
       throw Exception('Lỗi khi tải danh sách sản phẩm: ${e.toString()}');
     }
@@ -80,25 +100,28 @@ class ProductService {
   /// Get product by ID
   Future<Product?> getProductById(String productId) async {
     try {
-      final response = await _supabase
+      final supabase = SupabaseService.client;
+      final product = await supabase
           .from('products')
-          .select('''
-            *,
-            categories:category_id(id, name)
-          ''')
+          .select('*, category:categories(name)')
           .eq('id', productId)
           .maybeSingle();
 
-      if (response == null) return null;
+      if (product == null) return null;
 
-      final data = Map<String, dynamic>.from(response);
+      final inventory = await supabase
+          .from('current_inventory')
+          .select('*')
+          .eq('product_id', productId)
+          .maybeSingle();
 
-      // Extract category name
-      if (data['categories'] != null) {
-        data['category_name'] = data['categories']['name'];
-      }
-
-      return Product.fromJson(data);
+      return Product.fromJson({
+        ...Map<String, dynamic>.from(product),
+        'category_name': (product['category'] as Map?)?['name'],
+        'total_quantity': inventory?['total_quantity'],
+        'avg_cost_price': inventory?['avg_cost_price'],
+        'nearest_expiry_date': inventory?['nearest_expiry_date'],
+      });
     } catch (e) {
       throw Exception('Lỗi khi tải sản phẩm: ${e.toString()}');
     }
@@ -115,44 +138,37 @@ class ProductService {
     bool? isActive,
   }) async {
     try {
-      final updateData = <String, dynamic>{};
+      final updates = <String, dynamic>{};
 
-      if (name != null) updateData['name'] = name;
-      if (barcode != null) updateData['barcode'] = barcode;
-      if (categoryId != null) updateData['category_id'] = categoryId;
-      if (unit != null) updateData['unit'] = unit;
-      if (minStockLevel != null) updateData['min_stock_level'] = minStockLevel;
-      if (isActive != null) updateData['is_active'] = isActive;
+      if (name != null) updates['name'] = name;
+      if (barcode != null) updates['barcode'] = barcode;
+      if (categoryId != null) updates['category_id'] = categoryId;
+      if (unit != null) updates['unit'] = unit;
+      if (minStockLevel != null) updates['min_stock_level'] = minStockLevel;
+      if (isActive != null) updates['is_active'] = isActive;
 
-      updateData['updated_at'] = DateTime.now().toIso8601String();
-
-      final response = await _supabase
+      final supabase = SupabaseService.client;
+      final data = await supabase
           .from('products')
-          .update(updateData)
+          .update(updates)
           .eq('id', productId)
-          .select('''
-            *,
-            categories:category_id(id, name)
-          ''')
+          .select('*, category:categories(name)')
           .single();
 
-      final data = Map<String, dynamic>.from(response);
-
-      // Extract category name
-      if (data['categories'] != null) {
-        data['category_name'] = data['categories']['name'];
-      }
-
-      return Product.fromJson(data);
+      return Product.fromJson({
+        ...data,
+        'category_name': (data['category'] as Map?)?['name'],
+      });
     } catch (e) {
       throw Exception('Lỗi khi cập nhật sản phẩm: ${e.toString()}');
     }
   }
 
-  /// Delete product (soft delete by setting is_active to false)
+  /// Delete product (soft delete)
   Future<void> deleteProduct(String productId) async {
     try {
-      await _supabase
+      final supabase = SupabaseService.client;
+      await supabase
           .from('products')
           .update({'is_active': false})
           .eq('id', productId);
@@ -161,12 +177,8 @@ class ProductService {
     }
   }
 
-  /// Hard delete product (permanently remove from database)
+  /// Hard delete product (fallback to soft delete)
   Future<void> hardDeleteProduct(String productId) async {
-    try {
-      await _supabase.from('products').delete().eq('id', productId);
-    } catch (e) {
-      throw Exception('Lỗi khi xóa vĩnh viễn sản phẩm: ${e.toString()}');
-    }
+    await deleteProduct(productId);
   }
 }

@@ -159,7 +159,7 @@ class _ProductFormDialogState extends ConsumerState<ProductFormDialog> {
                 categoriesAsync.when(
                   data: (categories) {
                     return DropdownButtonFormField<String>(
-                      value: _selectedCategoryId,
+                      initialValue: _selectedCategoryId,
                       decoration: const InputDecoration(
                         labelText: 'Danh mục *',
                         border: OutlineInputBorder(),

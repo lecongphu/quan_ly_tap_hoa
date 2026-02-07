@@ -74,7 +74,8 @@ Trong Supabase Dashboard > SQL Editor, chạy các file theo thứ tự:
 1. `database/schema.sql` - Tạo bảng và views
 2. `database/triggers.sql` - Tạo triggers và functions
 3. `database/rls_policies.sql` - Thiết lập RLS policies
-4. `database/seed_data.sql` - Dữ liệu mẫu
+4. `database/rpc_functions.sql` - RPC functions thay thế backend
+5. `database/seed_data.sql` - Dữ liệu mẫu
 
 #### d. Tạo tài khoản admin đầu tiên
 1. Trong Supabase Dashboard > Authentication, tạo user mới

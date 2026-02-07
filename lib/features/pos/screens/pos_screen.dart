@@ -9,6 +9,7 @@ import '../../../core/constants/app_constants.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../models/cart_model.dart' as cart_model;
 import '../widgets/payment_dialog.dart';
+import 'invoice_list_screen.dart';
 
 class POSScreen extends ConsumerStatefulWidget {
   const POSScreen({super.key});
@@ -48,11 +49,17 @@ class _POSScreenState extends ConsumerState<POSScreen> {
     try {
       final user = ref.read(currentUserProvider);
 
+      final discountAmount =
+          (result['discountAmount'] as num?)?.toDouble() ?? 0;
+      ref.read(cartProvider.notifier).setDiscount(discountAmount);
+
       await ref
           .read(cartProvider.notifier)
           .checkout(
             customerId: result['customerId'],
             paymentMethod: result['paymentMethod'],
+            discountAmount: discountAmount,
+            dueDate: result['dueDate'] as DateTime?,
             notes: result['notes'],
             createdBy: user?.id,
           );
@@ -76,22 +83,82 @@ class _POSScreenState extends ConsumerState<POSScreen> {
     );
   }
 
+  void _openCartSheet() {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        final height = MediaQuery.sizeOf(context).height;
+        return Consumer(
+          builder: (context, ref, _) {
+            final cartState = ref.watch(cartProvider);
+            return SafeArea(
+              top: false,
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(12.w, 12.h, 12.w, 16.h),
+                child: SizedBox(
+                  height: height * 0.85,
+                  child: _CartSection(
+                    cartState: cartState,
+                    currencyFormat: _currencyFormat,
+                    onCheckout: _handleCheckout,
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final cartState = ref.watch(cartProvider);
     final productsAsync = ref.watch(productsProvider);
     final categoriesAsync = ref.watch(categoriesProvider);
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Bán hàng')),
-      body: productsAsync.when(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final shortestSide = MediaQuery.sizeOf(context).shortestSide;
+        final isTablet = shortestSide >= 600;
+        final isPhone = !isTablet;
+
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text('Bán hàng'),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.receipt_long),
+                tooltip: 'Danh sách hóa đơn',
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const InvoiceListScreen(),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+          bottomNavigationBar: isPhone
+              ? _MobileCartBar(
+                  cartState: cartState,
+                  currencyFormat: _currencyFormat,
+                  onOpenCart: _openCartSheet,
+                  onCheckout: _handleCheckout,
+                )
+              : null,
+          body: productsAsync.when(
         data: (products) {
           final query = _searchController.text.trim().toLowerCase();
-          final matchesQuery = (Product product) =>
+          bool matchesQuery(Product product) =>
               query.isEmpty ||
               product.name.toLowerCase().contains(query) ||
               (product.barcode?.toLowerCase().contains(query) ?? false);
-          final matchesStockStatus = (Product product) {
+          bool matchesStockStatus(Product product) {
             switch (_selectedStockStatus) {
               case 'in_stock':
                 return !product.isOutOfStock;
@@ -102,8 +169,8 @@ class _POSScreenState extends ConsumerState<POSScreen> {
               default:
                 return true;
             }
-          };
-          final matchesCategory = (Product product) =>
+          }
+          bool matchesCategory(Product product) =>
               _selectedCategoryId == null ||
               product.categoryId == _selectedCategoryId;
           final filteredProducts = products
@@ -130,15 +197,127 @@ class _POSScreenState extends ConsumerState<POSScreen> {
 
           return LayoutBuilder(
             builder: (context, constraints) {
-              final isCompact = constraints.maxWidth < 1100;
-              final cartWidth = isCompact
-                  ? constraints.maxWidth
-                  : constraints.maxWidth.clamp(360.0, 440.0);
+              final size = MediaQuery.sizeOf(context);
+              final shortestSide = size.shortestSide;
+              final isTablet = shortestSide >= 600;
+              final isLargeTablet = shortestSide >= 840;
+              final isSmallTablet = isTablet && !isLargeTablet;
+              final isPhone = !isTablet;
+              final isWideLayout = constraints.maxWidth >= 900;
+              final useSplitView = isTablet && isWideLayout;
+              final cartWidth = useSplitView
+                  ? (isLargeTablet ? 420.0 : 360.0)
+                  : constraints.maxWidth;
+              final productAreaWidth = useSplitView
+                  ? (constraints.maxWidth - cartWidth - 16.w)
+                      .clamp(320.0, constraints.maxWidth)
+                  : constraints.maxWidth;
 
-              final gridMinWidth = isCompact ? 150.0 : 170.0;
-              final gridCount = (constraints.maxWidth / gridMinWidth)
-                  .floor()
-                  .clamp(2, isCompact ? 4 : 6);
+              final gridMinWidth = isLargeTablet
+                  ? 200.0
+                  : isSmallTablet
+                  ? 170.0
+                  : isPhone
+                  ? 150.0
+                  : 170.0;
+              final gridMaxCount = isLargeTablet ? 6 : useSplitView ? 5 : 4;
+              final gridCount =
+                  (productAreaWidth / gridMinWidth).floor().clamp(2, gridMaxCount);
+              final gridAspectRatio = isLargeTablet
+                  ? 0.9
+                  : isSmallTablet
+                  ? 0.84
+                  : isPhone
+                  ? 0.78
+                  : 0.82;
+
+              final filterChips = <Widget>[
+                _POSFilterChip(
+                  label: 'Tất cả',
+                  selected: _selectedStockStatus == 'all',
+                  onSelected: () {
+                    setState(() {
+                      _selectedStockStatus = 'all';
+                    });
+                  },
+                ),
+                _POSFilterChip(
+                  label: 'Còn hàng',
+                  selected: _selectedStockStatus == 'in_stock',
+                  onSelected: () {
+                    setState(() {
+                      _selectedStockStatus = 'in_stock';
+                    });
+                  },
+                ),
+                _POSFilterChip(
+                  label: 'Sắp hết',
+                  selected: _selectedStockStatus == 'low_stock',
+                  onSelected: () {
+                    setState(() {
+                      _selectedStockStatus = 'low_stock';
+                    });
+                  },
+                ),
+                _POSFilterChip(
+                  label: 'Hết hàng',
+                  selected: _selectedStockStatus == 'out_of_stock',
+                  onSelected: () {
+                    setState(() {
+                      _selectedStockStatus = 'out_of_stock';
+                    });
+                  },
+                ),
+              ];
+
+              final categoryDropdown = SizedBox(
+                width: useSplitView ? 240.w : constraints.maxWidth,
+                child: categoriesAsync.when(
+                  data: (_) {
+                    return DropdownButtonFormField<String?>(
+                      initialValue: _selectedCategoryId,
+                      isExpanded: true,
+                      decoration: InputDecoration(
+                        labelText: 'Danh mục',
+                        filled: true,
+                        fillColor: Theme.of(context)
+                            .colorScheme
+                            .surfaceContainerHighest
+                            .withValues(alpha: 0.3),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12.r),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                      items: [
+                        const DropdownMenuItem<String?>(
+                          value: null,
+                          child: Text('Tất cả danh mục'),
+                        ),
+                        ...categories.map(
+                          (category) => DropdownMenuItem<String?>(
+                            value: category.id,
+                            child: Text(category.name),
+                          ),
+                        ),
+                      ],
+                      onChanged: (value) {
+                        setState(() {
+                          _selectedCategoryId = value;
+                        });
+                      },
+                    );
+                  },
+                  loading: () => const LinearProgressIndicator(),
+                  error: (error, stack) => Text(
+                    'Lỗi tải danh mục',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                      fontSize: 12.sp,
+                    ),
+                  ),
+                ),
+              );
 
               final productSection = Column(
                 children: [
@@ -243,98 +422,35 @@ class _POSScreenState extends ConsumerState<POSScreen> {
                           ],
                         ),
                         SizedBox(height: 8.h),
-                        Wrap(
-                          spacing: 8.w,
-                          runSpacing: 8.h,
-                          children: [
-                            _POSFilterChip(
-                              label: 'Tất cả',
-                              selected: _selectedStockStatus == 'all',
-                              onSelected: () {
-                                setState(() {
-                                  _selectedStockStatus = 'all';
-                                });
-                              },
-                            ),
-                            _POSFilterChip(
-                              label: 'Còn hàng',
-                              selected: _selectedStockStatus == 'in_stock',
-                              onSelected: () {
-                                setState(() {
-                                  _selectedStockStatus = 'in_stock';
-                                });
-                              },
-                            ),
-                            _POSFilterChip(
-                              label: 'Sắp hết',
-                              selected: _selectedStockStatus == 'low_stock',
-                              onSelected: () {
-                                setState(() {
-                                  _selectedStockStatus = 'low_stock';
-                                });
-                              },
-                            ),
-                            _POSFilterChip(
-                              label: 'Hết hàng',
-                              selected: _selectedStockStatus == 'out_of_stock',
-                              onSelected: () {
-                                setState(() {
-                                  _selectedStockStatus = 'out_of_stock';
-                                });
-                              },
-                            ),
-                            SizedBox(
-                              width: isCompact ? constraints.maxWidth : 240.w,
-                              child: categoriesAsync.when(
-                                data: (_) {
-                                  return DropdownButtonFormField<String?>(
-                                    value: _selectedCategoryId,
-                                    isExpanded: true,
-                                    decoration: InputDecoration(
-                                      labelText: 'Danh mục',
-                                      filled: true,
-                                      fillColor: Theme.of(context)
-                                          .colorScheme
-                                          .surfaceContainerHighest
-                                          .withValues(alpha: 0.3),
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(
-                                          12.r,
-                                        ),
-                                        borderSide: BorderSide.none,
+                        if (isPhone)
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              SingleChildScrollView(
+                                scrollDirection: Axis.horizontal,
+                                child: Row(
+                                  children: [
+                                    for (final chip in filterChips)
+                                      Padding(
+                                        padding: EdgeInsets.only(right: 8.w),
+                                        child: chip,
                                       ),
-                                    ),
-                                    items: [
-                                      const DropdownMenuItem<String?>(
-                                        value: null,
-                                        child: Text('Tất cả danh mục'),
-                                      ),
-                                      ...categories.map(
-                                        (category) => DropdownMenuItem<String?>(
-                                          value: category.id,
-                                          child: Text(category.name),
-                                        ),
-                                      ),
-                                    ],
-                                    onChanged: (value) {
-                                      setState(() {
-                                        _selectedCategoryId = value;
-                                      });
-                                    },
-                                  );
-                                },
-                                loading: () => const LinearProgressIndicator(),
-                                error: (error, stack) => Text(
-                                  'Lỗi tải danh mục',
-                                  style: TextStyle(
-                                    color: Theme.of(context).colorScheme.error,
-                                    fontSize: 12.sp,
-                                  ),
+                                  ],
                                 ),
                               ),
-                            ),
-                          ],
-                        ),
+                              SizedBox(height: 10.h),
+                              categoryDropdown,
+                            ],
+                          )
+                        else
+                          Wrap(
+                            spacing: 8.w,
+                            runSpacing: 8.h,
+                            children: [
+                              ...filterChips,
+                              categoryDropdown,
+                            ],
+                          ),
                       ],
                     ),
                   ),
@@ -423,7 +539,7 @@ class _POSScreenState extends ConsumerState<POSScreen> {
                                   crossAxisCount: gridCount,
                                   crossAxisSpacing: 12.w,
                                   mainAxisSpacing: 12.h,
-                                  childAspectRatio: isCompact ? 0.78 : 0.82,
+                                  childAspectRatio: gridAspectRatio,
                                 ),
                             itemCount: filteredProducts.length,
                             itemBuilder: (context, index) {
@@ -454,15 +570,16 @@ class _POSScreenState extends ConsumerState<POSScreen> {
                 ),
               );
 
-              if (isCompact) {
+              if (isPhone) {
+                return productSection;
+              }
+
+              if (!useSplitView) {
                 return Column(
                   children: [
-                    Expanded(child: productSection),
+                    Expanded(flex: 3, child: productSection),
                     SizedBox(height: 12.h),
-                    ConstrainedBox(
-                      constraints: BoxConstraints(maxHeight: 420.h),
-                      child: cartSection,
-                    ),
+                    Expanded(flex: 2, child: cartSection),
                   ],
                 );
               }
@@ -480,6 +597,8 @@ class _POSScreenState extends ConsumerState<POSScreen> {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, stack) => Center(child: Text('Lỗi: $error')),
       ),
+    );
+      },
     );
   }
 }
@@ -556,7 +675,7 @@ class _CartSection extends ConsumerWidget {
                 ? _EmptyCartState(
                     onSuggestProduct: () {
                       final controller = PrimaryScrollController.of(context);
-                      if (controller != null && controller.hasClients) {
+                      if (controller.hasClients) {
                         controller.animateTo(
                           0,
                           duration: const Duration(milliseconds: 300),
@@ -644,6 +763,121 @@ class _CartSection extends ConsumerWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _MobileCartBar extends StatelessWidget {
+  final CartState cartState;
+  final NumberFormat currencyFormat;
+  final VoidCallback onOpenCart;
+  final Future<void> Function() onCheckout;
+
+  const _MobileCartBar({
+    required this.cartState,
+    required this.currencyFormat,
+    required this.onOpenCart,
+    required this.onCheckout,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final isDisabled = cartState.items.isEmpty || cartState.isLoading;
+
+    return SafeArea(
+      top: false,
+      child: Container(
+        padding: EdgeInsets.fromLTRB(16.w, 10.h, 16.w, 12.h),
+        decoration: BoxDecoration(
+          color: scheme.surface,
+          border: Border(top: BorderSide(color: scheme.outlineVariant)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.08),
+              blurRadius: 16,
+              offset: const Offset(0, -6),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: InkWell(
+                onTap: onOpenCart,
+                borderRadius: BorderRadius.circular(14.r),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 44.w,
+                      height: 44.w,
+                      decoration: BoxDecoration(
+                        color: scheme.primary.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(14.r),
+                      ),
+                      child: Icon(
+                        Icons.shopping_cart,
+                        color: scheme.primary,
+                        size: 22.sp,
+                      ),
+                    ),
+                    SizedBox(width: 10.w),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'Giỏ hàng (${cartState.itemCount})',
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                ),
+                          ),
+                          SizedBox(height: 2.h),
+                          Text(
+                            currencyFormat.format(cartState.finalAmount),
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodyMedium
+                                ?.copyWith(
+                                  color: scheme.onSurfaceVariant,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            SizedBox(width: 12.w),
+            SizedBox(
+              height: 44.h,
+              child: FilledButton.icon(
+                onPressed: isDisabled ? null : onCheckout,
+                icon: cartState.isLoading
+                    ? SizedBox(
+                        width: 16.w,
+                        height: 16.w,
+                        child: const CircularProgressIndicator(
+                          strokeWidth: 2.2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(Icons.payment),
+                label: Text(
+                  cartState.isLoading ? 'Đang xử lý' : 'Thanh toán',
+                  style: TextStyle(fontSize: 13.sp, fontWeight: FontWeight.w700),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -927,7 +1161,10 @@ class _ProductCard extends StatelessWidget {
                     const Spacer(),
                     if (product.avgCostPrice != null)
                       Text(
-                        currencyFormat.format(product.avgCostPrice! * 1.3),
+                        currencyFormat.format(
+                          product.avgCostPrice! *
+                              AppConstants.defaultSalePriceMultiplier,
+                        ),
                         style: TextStyle(
                           fontSize: 12.sp,
                           color: colorScheme.primary,

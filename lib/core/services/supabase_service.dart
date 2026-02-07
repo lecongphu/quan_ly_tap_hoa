@@ -1,56 +1,21 @@
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../constants/app_constants.dart';
 
-/// Singleton service for Supabase client management
+/// Supabase bootstrap and shared client access.
 class SupabaseService {
-  static SupabaseService? _instance;
-  static SupabaseClient? _client;
-
-  SupabaseService._();
-
-  /// Get singleton instance
-  static SupabaseService get instance {
-    _instance ??= SupabaseService._();
-    return _instance!;
-  }
-
-  /// Initialize Supabase
   static Future<void> initialize() async {
-    await Supabase.initialize(
-      url: AppConstants.supabaseUrl,
-      anonKey: AppConstants.supabaseAnonKey,
-      debug: true, // Set to false in production
-    );
-    _client = Supabase.instance.client;
-  }
+    final url = dotenv.env['SUPABASE_URL'];
+    final anonKey = dotenv.env['SUPABASE_ANON_KEY'];
 
-  /// Get Supabase client
-  SupabaseClient get client {
-    if (_client == null) {
-      throw Exception(
-        'Supabase has not been initialized. Call SupabaseService.initialize() first.',
-      );
+    if (url == null || url.isEmpty || anonKey == null || anonKey.isEmpty) {
+      throw Exception('Missing Supabase configuration in .env');
     }
-    return _client!;
+
+    await Supabase.initialize(
+      url: url,
+      anonKey: anonKey,
+    );
   }
 
-  /// Get current user
-  User? get currentUser => _client?.auth.currentUser;
-
-  /// Get current session
-  Session? get currentSession => _client?.auth.currentSession;
-
-  /// Check if user is authenticated
-  bool get isAuthenticated => currentUser != null;
-
-  /// Auth state changes stream
-  Stream<AuthState> get authStateChanges => _client!.auth.onAuthStateChange;
-
-  /// Sign out
-  Future<void> signOut() async {
-    await _client?.auth.signOut();
-  }
+  static SupabaseClient get client => Supabase.instance.client;
 }
-
-/// Convenient getter for Supabase client
-SupabaseClient get supabase => SupabaseService.instance.client;

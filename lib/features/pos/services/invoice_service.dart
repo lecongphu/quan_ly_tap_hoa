@@ -218,7 +218,7 @@ class InvoiceService {
             children: [
               _buildTableCell(index.toString()),
               _buildTableCell(
-                'Item ${item.productId}',
+                item.productName ?? 'Item ${item.productId}',
               ), // TODO: Get product name
               _buildTableCell(item.quantity.toInt().toString()),
               _buildTableCell(_currencyFormat.format(item.unitPrice)),

@@ -1,6 +1,6 @@
-﻿import { Injectable } from '@angular/core';
-import { Observable } from 'rxjs';
-import { ApiService } from './api.service';
+import { Injectable } from '@angular/core';
+import { Observable, from, map } from 'rxjs';
+import { supabase } from './supabase.client';
 
 export interface DailyReport {
   id: string;
@@ -18,9 +18,14 @@ export interface DailyReport {
   providedIn: 'root'
 })
 export class ReportService {
-  constructor(private api: ApiService) {}
-
   getDailyReports(): Observable<DailyReport[]> {
-    return this.api.get<DailyReport[]>('/reports/daily');
+    return from(
+      supabase.from('daily_reports').select('*').order('report_date', { ascending: false })
+    ).pipe(
+      map(({ data, error }) => {
+        if (error) throw error;
+        return data ?? [];
+      })
+    );
   }
 }

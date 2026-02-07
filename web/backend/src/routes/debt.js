@@ -45,8 +45,7 @@ router.post(
     const schema = z.object({
       name: z.string().min(1),
       phone: z.string().optional().nullable(),
-      address: z.string().optional().nullable(),
-      debt_limit: z.number().nonnegative().optional()
+      address: z.string().optional().nullable()
     });
 
     const parsed = schema.safeParse(req.body);
@@ -56,10 +55,7 @@ router.post(
 
     const { data, error } = await req.supabase
       .from('customers')
-      .insert({
-        ...parsed.data,
-        debt_limit: parsed.data.debt_limit ?? 0
-      })
+      .insert(parsed.data)
       .select('*')
       .single();
 
@@ -79,7 +75,6 @@ router.put(
       name: z.string().min(1).optional(),
       phone: z.string().optional().nullable(),
       address: z.string().optional().nullable(),
-      debt_limit: z.number().nonnegative().optional(),
       is_active: z.boolean().optional()
     });
 
@@ -149,8 +144,12 @@ router.get(
   requireAuth,
   asyncHandler(async (req, res) => {
     const limit = Number.parseInt(req.query.limit, 10) || 20;
+    const year = Number.parseInt(req.query.year, 10);
+    const hasYear = Number.isFinite(year);
+    const yearStart = hasYear ? new Date(Date.UTC(year, 0, 1)).toISOString() : null;
+    const yearEnd = hasYear ? new Date(Date.UTC(year + 1, 0, 1)).toISOString() : null;
 
-    const { data: sales, error: salesError } = await req.supabase
+    let salesQuery = req.supabase
       .from('sales')
       .select(
         'id, invoice_number, total_amount, discount_amount, final_amount, payment_method, payment_status, created_at, due_date'
@@ -159,12 +158,26 @@ router.get(
       .order('created_at', { ascending: false })
       .limit(limit);
 
-    const { data: payments, error: paymentsError } = await req.supabase
+    if (hasYear && yearStart && yearEnd) {
+      salesQuery = salesQuery.gte('created_at', yearStart).lt('created_at', yearEnd);
+    }
+
+    const { data: sales, error: salesError } = await salesQuery;
+
+    let paymentsQuery = req.supabase
       .from('debt_payments')
       .select('id, amount, payment_method, notes, created_at')
       .eq('customer_id', req.params.id)
       .order('created_at', { ascending: false })
       .limit(limit);
+
+    if (hasYear && yearStart && yearEnd) {
+      paymentsQuery = paymentsQuery
+        .gte('created_at', yearStart)
+        .lt('created_at', yearEnd);
+    }
+
+    const { data: payments, error: paymentsError } = await paymentsQuery;
 
     if (salesError || paymentsError) {
       return res.status(400).json({
@@ -183,7 +196,26 @@ router.get(
   '/customers/:id/debt-lines',
   requireAuth,
   asyncHandler(async (req, res) => {
-    const { data, error } = await req.supabase
+    const year = Number.parseInt(req.query.year, 10);
+    const hasYear = Number.isFinite(year);
+    const yearStart = hasYear ? new Date(Date.UTC(year, 0, 1)).toISOString() : null;
+    const yearEnd = hasYear ? new Date(Date.UTC(year + 1, 0, 1)).toISOString() : null;
+    const duplicateOnly = req.query.duplicateOnly === 'true';
+
+    if (duplicateOnly) {
+      const { data, error } = await req.supabase.rpc('get_duplicate_debt_lines', {
+        p_customer_id: req.params.id,
+        p_year: hasYear ? year : null
+      });
+
+      if (error) {
+        return res.status(400).json({ message: error.message });
+      }
+
+      return res.json(data ?? []);
+    }
+
+    let query = req.supabase
       .from('sales')
       .select(
         'id, invoice_number, created_at, due_date, final_amount, notes, payment_method, sale_items(quantity, unit_price, subtotal, product:products(name, unit))'
@@ -191,6 +223,12 @@ router.get(
       .eq('customer_id', req.params.id)
       .eq('payment_method', 'debt')
       .order('created_at', { ascending: false });
+
+    if (hasYear && yearStart && yearEnd) {
+      query = query.gte('created_at', yearStart).lt('created_at', yearEnd);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       return res.status(400).json({ message: error.message });

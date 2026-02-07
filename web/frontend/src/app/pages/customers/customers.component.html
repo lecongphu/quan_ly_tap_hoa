@@ -69,14 +69,6 @@
           <small>Nợ hiện tại</small>
           <strong>{{ formatCurrency(customer.current_debt) }}</strong>
         </div>
-        <div>
-          <small>Hạn mức</small>
-          <strong>{{ formatCurrency(customer.debt_limit) }}</strong>
-        </div>
-        <div>
-          <small>Còn lại</small>
-          <strong>{{ formatCurrency((customer.debt_limit || 0) - (customer.current_debt || 0)) }}</strong>
-        </div>
       </div>
       <div class="card-actions">
         <button class="btn btn-outline" (click)="openForm(customer)">
@@ -117,10 +109,6 @@
       <label>
         Địa chỉ
         <input class="input" [(ngModel)]="customerForm.address" />
-      </label>
-      <label>
-        Hạn mức nợ
-        <input class="input" type="number" [(ngModel)]="customerForm.debt_limit" />
       </label>
       <label class="toggle">
         <input type="checkbox" [(ngModel)]="customerForm.is_active" />

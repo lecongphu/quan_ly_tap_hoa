@@ -36,7 +36,7 @@ class LocalDbService {
 
     return await openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -78,7 +78,6 @@ class LocalDbService {
         name TEXT NOT NULL,
         phone TEXT,
         current_debt REAL,
-        debt_limit REAL,
         synced_at INTEGER NOT NULL
       )
     ''');
@@ -99,7 +98,41 @@ class LocalDbService {
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    // Handle database migrations here
+    if (oldVersion < 2) {
+      final tableInfo = await db.rawQuery(
+        'PRAGMA table_info(cached_customers)',
+      );
+      final hasDebtLimit = tableInfo.any(
+        (column) => column['name'] == 'debt_limit',
+      );
+      if (hasDebtLimit) {
+        await db.execute('DROP TABLE IF EXISTS cached_customers_new');
+        await db.execute('''
+          CREATE TABLE cached_customers_new (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            phone TEXT,
+            current_debt REAL,
+            synced_at INTEGER NOT NULL
+          )
+        ''');
+        await db.execute('''
+          INSERT INTO cached_customers_new (
+            id,
+            name,
+            phone,
+            current_debt,
+            synced_at
+          )
+          SELECT id, name, phone, current_debt, synced_at
+          FROM cached_customers
+        ''');
+        await db.execute('DROP TABLE cached_customers');
+        await db.execute(
+          'ALTER TABLE cached_customers_new RENAME TO cached_customers',
+        );
+      }
+    }
   }
 
   /// Add to offline queue

@@ -3,7 +3,6 @@
   name: string;
   phone?: string | null;
   address?: string | null;
-  debt_limit?: number;
   current_debt?: number;
   is_active?: boolean;
   created_at?: string;

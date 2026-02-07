@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/cart_model.dart';
 import '../services/pos_service.dart';
 import '../../inventory/models/product_model.dart';
+import '../../../core/constants/app_constants.dart';
 
 /// Cart state
 class CartState {
@@ -72,7 +73,8 @@ class CartNotifier extends StateNotifier<CartState> {
         quantity: 1,
         unitPrice: unitPrice > 0
             ? unitPrice
-            : (product.avgCostPrice ?? 0) * 1.3,
+            : (product.avgCostPrice ?? 0) *
+                AppConstants.defaultSalePriceMultiplier,
         // Default markup 30%
         costPrice: product.avgCostPrice,
       );
@@ -143,6 +145,8 @@ class CartNotifier extends StateNotifier<CartState> {
   Future<Sale> checkout({
     String? customerId,
     required String paymentMethod,
+    double discountAmount = 0,
+    DateTime? dueDate,
     String? notes,
     String? createdBy,
   }) async {
@@ -153,7 +157,8 @@ class CartNotifier extends StateNotifier<CartState> {
         cartItems: state.items,
         customerId: customerId,
         paymentMethod: paymentMethod,
-        discountAmount: state.discountAmount,
+        discountAmount: discountAmount,
+        dueDate: dueDate,
         notes: notes,
         createdBy: createdBy,
       );

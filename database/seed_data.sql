@@ -134,11 +134,11 @@ INSERT INTO products (barcode, name, category_id, unit, min_stock_level) VALUES
 -- 6. SAMPLE CUSTOMERS
 -- ============================================
 
-INSERT INTO customers (name, phone, address, debt_limit) VALUES
-('Khách vãng lai', NULL, NULL, 0),
-('Nguyễn Văn A', '0901234567', '123 Đường ABC, Quận 1', 1000000),
-('Trần Thị B', '0912345678', '456 Đường XYZ, Quận 2', 500000),
-('Lê Văn C', '0923456789', '789 Đường DEF, Quận 3', 2000000);
+INSERT INTO customers (name, phone, address) VALUES
+('Khách vãng lai', NULL, NULL),
+('Nguyễn Văn A', '0901234567', '123 Đường ABC, Quận 1'),
+('Trần Thị B', '0912345678', '456 Đường XYZ, Quận 2'),
+('Lê Văn C', '0923456789', '789 Đường DEF, Quận 3');
 
 -- ============================================
 -- NOTES

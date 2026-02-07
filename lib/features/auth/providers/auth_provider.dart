@@ -40,28 +40,15 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   void _init() {
-    // Listen to auth state changes
-    _authService.authStateChanges.listen((event) {
-      if (event.session != null) {
-        _loadUserProfile(event.session!.user.id);
+    Future.microtask(() async {
+      state = state.copyWith(isLoading: true);
+      final profile = await _authService.restoreSession();
+      if (profile != null) {
+        state = AuthState(isAuthenticated: true, user: profile);
       } else {
         state = AuthState(isAuthenticated: false);
       }
     });
-
-    // Check initial auth state
-    if (_authService.isAuthenticated) {
-      _loadUserProfile(_authService.currentUser!.id);
-    }
-  }
-
-  Future<void> _loadUserProfile(String userId) async {
-    try {
-      final profile = await _authService.getUserProfile(userId);
-      state = AuthState(isAuthenticated: true, user: profile);
-    } catch (e) {
-      state = AuthState(isAuthenticated: false, error: e.toString());
-    }
   }
 
   Future<void> signIn({required String email, required String password}) async {

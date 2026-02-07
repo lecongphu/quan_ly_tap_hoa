@@ -60,14 +60,6 @@
           <small>Nợ hiện tại</small>
           <strong>{{ formatCurrency(customer.current_debt) }}</strong>
         </div>
-        <div>
-          <small>Hạn mức</small>
-          <strong>{{ formatCurrency(customer.debt_limit) }}</strong>
-        </div>
-        <div>
-          <small>Còn lại</small>
-          <strong>{{ formatCurrency((customer.debt_limit || 0) - (customer.current_debt || 0)) }}</strong>
-        </div>
       </div>
       <div class="card-actions">
         <div class="primary-actions">
@@ -111,10 +103,6 @@
         <div>
           <small>Nợ hiện tại</small>
           <strong>{{ formatCurrency(selectedCustomer.current_debt) }}</strong>
-        </div>
-        <div>
-          <small>Hạn mức</small>
-          <strong>{{ formatCurrency(selectedCustomer.debt_limit) }}</strong>
         </div>
       </div>
       <label>
@@ -173,14 +161,6 @@
         <small>Nợ hiện tại</small>
         <strong>{{ formatCurrency(selectedCustomer.current_debt) }}</strong>
       </div>
-      <div>
-        <small>Hạn mức</small>
-        <strong>{{ formatCurrency(selectedCustomer.debt_limit) }}</strong>
-      </div>
-      <div>
-        <small>Còn lại</small>
-        <strong>{{ formatCurrency((selectedCustomer.debt_limit || 0) - (selectedCustomer.current_debt || 0)) }}</strong>
-      </div>
     </div>
     <div class="detail-tabs">
       <button [class.active]="detailTab === 'lines'" (click)="setDetailTabExtended('lines')">Dòng nợ</button>
@@ -189,106 +169,191 @@
     </div>
     <div class="detail-body">
       <div *ngIf="isHistoryLoading" class="text-muted">Đang tải dữ liệu...</div>
+      <div class="detail-filters" *ngIf="!isHistoryLoading">
+        <label>
+          Năm
+          <select class="input" [(ngModel)]="selectedYear" (ngModelChange)="onYearChange($event)">
+            <option [ngValue]="null">Tất cả</option>
+            <option *ngFor="let year of availableYears" [ngValue]="year">{{ year }}</option>
+          </select>
+        </label>
+      </div>
 
       <div *ngIf="!isHistoryLoading && detailTab === 'lines'" class="debt-lines">
         <div class="detail-actions">
-          <button class="btn btn-primary" (click)="openDebtLineForm(selectedCustomer!)">
-            <span class="material-icons">note_add</span>
-            Thêm nợ
-          </button>
+          <div class="primary-actions">
+            <button class="btn btn-primary" (click)="openDebtLineForm(selectedCustomer!)">
+              <span class="material-icons">note_add</span>
+              Thêm nợ
+            </button>
+            <label class="toggle">
+              <input
+                type="checkbox"
+                [(ngModel)]="showDuplicateOnly"
+                (change)="toggleDuplicateOnly()"
+              />
+              Chỉ ngày trùng
+            </label>
+            <button
+              class="btn btn-outline"
+              (click)="exportDebtLinesToExcel()"
+              [disabled]="!filteredDebtLines.length"
+            >
+              <span class="material-icons">file_download</span>
+              Xuất Excel
+            </button>
+          </div>
           <span class="text-muted">Chỉ áp dụng cho nợ nhập tay.</span>
         </div>
-        <div class="debt-line-card" *ngFor="let line of debtLines">
-          <div class="line-header">
-            <div>
-              <strong>{{ line.invoice_number }}</strong>
-              <div class="text-muted">
-                Mua: {{ line.created_at | date: 'dd/MM/yyyy HH:mm' }} ·
-                Hẹn trả: {{ line.due_date ? (line.due_date | date: 'dd/MM/yyyy') : '-' }}
-              </div>
-              <div class="text-muted" *ngIf="line.notes">Ghi chú: {{ line.notes }}</div>
-              <div class="text-muted" *ngIf="!line.items.length">Nợ nhập tay</div>
-            </div>
-            <div class="line-actions">
-              <div class="line-amount">{{ formatCurrency(line.final_amount) }}</div>
-              <div class="inline-actions" *ngIf="canEditDebtLine(line)">
-                <button class="icon-btn" (click)="editDebtLine(line)">
-                  <span class="material-icons">edit</span>
-                </button>
-                <button class="icon-btn danger" (click)="deleteDebtLine(line)">
-                  <span class="material-icons">delete</span>
-                </button>
-              </div>
-            </div>
-          </div>
-          <ul *ngIf="line.items.length">
-            <li *ngFor="let item of line.items">
-              <span>{{ item.product_name }} ({{ item.quantity }} {{ item.unit }})</span>
-              <span>{{ formatCurrency(item.subtotal) }}</span>
-            </li>
-          </ul>
+        <div class="excel-scroll">
+          <table class="excel-table">
+            <thead>
+              <tr>
+                <th>STT</th>
+                <th>Mã hóa đơn</th>
+                <th>Ngày mua</th>
+                <th>Hẹn trả</th>
+                <th>Loại</th>
+                <th class="text-right">Số tiền</th>
+                <th>Ghi chú</th>
+                <th>Sản phẩm</th>
+                <th>Thao tác</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let line of filteredDebtLines; let i = index">
+                <td>{{ i + 1 }}</td>
+                <td>{{ line.invoice_number }}</td>
+                <td>{{ line.created_at | date: 'dd/MM/yyyy HH:mm' }}</td>
+                <td>{{ line.due_date ? (line.due_date | date: 'dd/MM/yyyy') : '-' }}</td>
+                <td>{{ line.items.length ? 'Hóa đơn' : 'Nợ nhập tay' }}</td>
+                <td class="text-right">{{ formatCurrency(line.final_amount) }}</td>
+                <td>{{ line.notes || '-' }}</td>
+                <td>
+                  <div class="cell-lines" *ngIf="line.items.length; else noItems">
+                    <div *ngFor="let item of line.items">
+                      {{ item.product_name }} ({{ item.quantity }} {{ item.unit }}) ·
+                      {{ formatCurrency(item.subtotal) }}
+                    </div>
+                  </div>
+                  <ng-template #noItems>-</ng-template>
+                </td>
+                <td>
+                  <div class="cell-actions" *ngIf="canEditDebtLine(line); else noAction">
+                    <button class="icon-btn" (click)="editDebtLine(line)">
+                      <span class="material-icons">edit</span>
+                    </button>
+                    <button class="icon-btn danger" (click)="deleteDebtLine(line)">
+                      <span class="material-icons">delete</span>
+                    </button>
+                  </div>
+                  <ng-template #noAction>-</ng-template>
+                </td>
+              </tr>
+              <tr *ngIf="!filteredDebtLines.length">
+                <td colspan="9" class="text-muted">
+                  {{ showDuplicateOnly ? 'Không có dòng nợ trùng ngày.' : 'Chưa có dòng nợ.' }}
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
-        <div class="text-muted" *ngIf="!debtLines.length">Chưa có dòng nợ.</div>
       </div>
 
-      <table *ngIf="!isHistoryLoading && detailTab === 'sales'" class="detail-table">
-        <thead>
-          <tr>
-            <th>Mã hóa đơn</th>
-            <th>Ngày</th>
-            <th>Tổng</th>
-            <th>Giảm giá</th>
-            <th>Thành tiền</th>
-            <th>Hẹn trả</th>
-            <th>Thanh toán</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let sale of salesHistory">
-            <td>{{ sale.invoice_number }}</td>
-            <td>{{ sale.created_at | date: 'dd/MM/yyyy HH:mm' }}</td>
-            <td>{{ formatCurrency(sale.total_amount) }}</td>
-            <td>{{ formatCurrency(sale.discount_amount || 0) }}</td>
-            <td>{{ formatCurrency(sale.final_amount) }}</td>
-            <td>{{ sale.due_date ? (sale.due_date | date: 'dd/MM/yyyy') : '-' }}</td>
-            <td>{{ sale.payment_method }}</td>
-          </tr>
-          <tr *ngIf="!salesHistory.length">
-            <td colspan="7" class="text-muted">Chưa có hóa đơn.</td>
-          </tr>
-        </tbody>
-      </table>
+      <div *ngIf="!isHistoryLoading && detailTab === 'sales'" class="debt-lines">
+        <div class="detail-actions">
+          <div class="primary-actions">
+            <button
+              class="btn btn-outline"
+              (click)="exportSalesToExcel()"
+              [disabled]="!filteredSalesHistory.length"
+            >
+              <span class="material-icons">file_download</span>
+              Xuất Excel
+            </button>
+          </div>
+        </div>
+        <div class="excel-scroll">
+          <table class="excel-table">
+            <thead>
+              <tr>
+                <th>STT</th>
+                <th>Mã hóa đơn</th>
+                <th>Ngày</th>
+                <th class="text-right">Tổng</th>
+                <th class="text-right">Giảm giá</th>
+                <th class="text-right">Thành tiền</th>
+                <th>Hẹn trả</th>
+                <th>Thanh toán</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let sale of filteredSalesHistory; let i = index">
+                <td>{{ i + 1 }}</td>
+                <td>{{ sale.invoice_number }}</td>
+                <td>{{ sale.created_at | date: 'dd/MM/yyyy HH:mm' }}</td>
+                <td class="text-right">{{ formatCurrency(sale.total_amount) }}</td>
+                <td class="text-right">{{ formatCurrency(sale.discount_amount || 0) }}</td>
+                <td class="text-right">{{ formatCurrency(sale.final_amount) }}</td>
+                <td>{{ sale.due_date ? (sale.due_date | date: 'dd/MM/yyyy') : '-' }}</td>
+                <td>{{ sale.payment_method }}</td>
+              </tr>
+              <tr *ngIf="!filteredSalesHistory.length">
+                <td colspan="8" class="text-muted">Chưa có hóa đơn.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
 
-      <table *ngIf="!isHistoryLoading && detailTab === 'payments'" class="detail-table">
-        <thead>
-          <tr>
-            <th>Ngày</th>
-            <th>Số tiền</th>
-            <th>Phương thức</th>
-            <th>Ghi chú</th>
-            <th>Thao tác</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let payment of paymentHistory">
-            <td>{{ payment.created_at | date: 'dd/MM/yyyy HH:mm' }}</td>
-            <td>{{ formatCurrency(payment.amount) }}</td>
-            <td>{{ payment.payment_method }}</td>
-            <td>{{ payment.notes || '-' }}</td>
-            <td>
-              <button class="icon-btn" (click)="editPayment(payment)">
-                <span class="material-icons">edit</span>
-              </button>
-              <button class="icon-btn danger" (click)="deletePayment(payment)">
-                <span class="material-icons">delete</span>
-              </button>
-            </td>
-          </tr>
-          <tr *ngIf="!paymentHistory.length">
-            <td colspan="5" class="text-muted">Chưa có thanh toán.</td>
-          </tr>
-        </tbody>
-      </table>
+      <div *ngIf="!isHistoryLoading && detailTab === 'payments'" class="debt-lines">
+        <div class="detail-actions">
+          <div class="primary-actions">
+            <button
+              class="btn btn-outline"
+              (click)="exportPaymentsToExcel()"
+              [disabled]="!filteredPaymentHistory.length"
+            >
+              <span class="material-icons">file_download</span>
+              Xuất Excel
+            </button>
+          </div>
+        </div>
+        <div class="excel-scroll">
+          <table class="excel-table">
+            <thead>
+              <tr>
+                <th>STT</th>
+                <th>Ngày</th>
+                <th class="text-right">Số tiền</th>
+                <th>Phương thức</th>
+                <th>Ghi chú</th>
+                <th>Thao tác</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let payment of filteredPaymentHistory; let i = index">
+                <td>{{ i + 1 }}</td>
+                <td>{{ payment.created_at | date: 'dd/MM/yyyy HH:mm' }}</td>
+                <td class="text-right">{{ formatCurrency(payment.amount) }}</td>
+                <td>{{ payment.payment_method }}</td>
+                <td>{{ payment.notes || '-' }}</td>
+                <td>
+                  <button class="icon-btn" (click)="editPayment(payment)">
+                    <span class="material-icons">edit</span>
+                  </button>
+                  <button class="icon-btn danger" (click)="deletePayment(payment)">
+                    <span class="material-icons">delete</span>
+                  </button>
+                </td>
+              </tr>
+              <tr *ngIf="!filteredPaymentHistory.length">
+                <td colspan="6" class="text-muted">Chưa có thanh toán.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   </div>
 </div>

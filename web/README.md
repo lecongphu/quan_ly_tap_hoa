@@ -1,20 +1,8 @@
-﻿# Web version (Angular + Node.js + Supabase)
+# Web version (Angular + Supabase)
 
 Thư mục `web/` chứa phiên bản web của dự án.
 
-## 1) Backend (Node.js)
-
-```bash
-cd web/backend
-npm install
-cp .env.example .env
-# điền SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY
-npm run dev
-```
-
-API mặc định chạy tại `http://localhost:4000`.
-
-## 2) Frontend (Angular)
+## 1) Frontend (Angular)
 
 ```bash
 cd web/frontend
@@ -22,9 +10,19 @@ npm install
 npm run start
 ```
 
-Frontend mặc định chạy tại `http://localhost:4200` và gọi API từ `http://localhost:4000`.
-Nếu cần thay đổi, chỉnh trong `web/frontend/src/app/core/config.ts`.
+Frontend mặc định chạy tại `http://localhost:4200`.
 
-## 3) Database
+Trước khi chạy, hãy cấu hình Supabase:
+
+```bash
+# Ví dụ trên Windows PowerShell
+$env:SUPABASE_URL="https://your-project.supabase.co"
+$env:SUPABASE_ANON_KEY="your-anon-key"
+npm run start
+```
+
+Hoặc chỉnh trực tiếp trong `web/frontend/src/app/core/config.ts`.
+
+## 2) Database
 
 Cấu trúc database vẫn nằm trong thư mục `database/` ở root project.

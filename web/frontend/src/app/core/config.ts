@@ -1,3 +1,4 @@
-﻿export const APP_CONFIG = {
-  apiBaseUrl: 'http://localhost:4000'
+export const APP_CONFIG = {
+  supabaseUrl: 'https://feddgbxjuowpsmtokwco.supabase.co',
+  supabaseAnonKey: 'replace-me'
 };

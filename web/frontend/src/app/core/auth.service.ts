@@ -1,7 +1,7 @@
-﻿import { Injectable } from '@angular/core';
-import { BehaviorSubject, Observable, tap } from 'rxjs';
-import { ApiService } from './api.service';
+import { Injectable } from '@angular/core';
+import { BehaviorSubject, Observable, from, tap } from 'rxjs';
 import { LoginResponse, UserProfile } from '../models/user.model';
+import { supabase } from './supabase.client';
 
 interface StoredSession {
   access_token: string;
@@ -19,19 +19,52 @@ export class AuthService {
   private profileSubject = new BehaviorSubject<UserProfile | null>(this.loadProfile());
   profile$ = this.profileSubject.asObservable();
 
-  constructor(private api: ApiService) {}
-
   login(email: string, password: string): Observable<LoginResponse> {
-    return this.api.post<LoginResponse>('/auth/login', { email, password }).pipe(
-      tap((response) => {
+    return from(
+      (async () => {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email,
+          password
+        });
+
+        if (error || !data.session || !data.user) {
+          throw error ?? new Error('Authentication failed');
+        }
+
+        const rpc = await supabase.rpc('get_my_profile_with_permissions');
+        if (rpc.error || !rpc.data) {
+          throw rpc.error ?? new Error('Profile not found');
+        }
+
+        const payload = rpc.data as {
+          profile: UserProfile;
+          permissions: Array<{ code: string; name: string; module: string }>;
+        };
+
+        const response: LoginResponse = {
+          session: data.session,
+          user: {
+            id: data.user.id,
+            email: data.user.email ?? undefined
+          },
+          profile: payload.profile,
+          permissions: payload.permissions ?? []
+        };
+
         this.saveSession(response.session);
         this.saveProfile(response.profile);
-      })
+        return response;
+      })()
     );
   }
 
   logout(): Observable<void> {
-    return this.api.post<void>('/auth/logout').pipe(
+    return from(
+      (async () => {
+        await supabase.auth.signOut();
+        this.clearSession();
+      })()
+    ).pipe(
       tap(() => {
         this.clearSession();
       })

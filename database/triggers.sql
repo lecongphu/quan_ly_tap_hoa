@@ -152,14 +152,18 @@ DECLARE
     v_invoice_number TEXT;
 BEGIN
     v_date := TO_CHAR(NOW(), 'YYYYMMDD');
+
+    -- Serialize generation per day to avoid duplicates under concurrency.
+    PERFORM pg_advisory_xact_lock(hashtext('sales_invoice_' || v_date));
     
-    -- Get next sequence for today
-    SELECT COALESCE(MAX(
-        CAST(SUBSTRING(invoice_number FROM 10) AS INTEGER)
-    ), 0) + 1
+    -- Get next sequence for today (sequence starts at position 11).
+    SELECT COALESCE(
+        MAX(CAST(SUBSTRING(invoice_number FROM 11) AS INTEGER)),
+        0
+    ) + 1
     INTO v_sequence
     FROM sales
-    WHERE invoice_number LIKE 'HD' || v_date || '%';
+    WHERE invoice_number ~ ('^HD' || v_date || '\\d{4}$');
     
     v_invoice_number := 'HD' || v_date || LPAD(v_sequence::TEXT, 4, '0');
     

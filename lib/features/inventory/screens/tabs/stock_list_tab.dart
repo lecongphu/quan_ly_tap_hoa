@@ -253,7 +253,7 @@ class _StockListTabState extends ConsumerState<StockListTab>
                         borderRadius: BorderRadius.circular(14),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
+                            color: Colors.black.withValues(alpha: 0.1),
                             blurRadius: 8,
                             offset: const Offset(0, 2),
                           ),
@@ -274,7 +274,7 @@ class _StockListTabState extends ConsumerState<StockListTab>
                             'Chi tiết sản phẩm',
                             style: TextStyle(
                               fontSize: 12,
-                              color: scheme.onPrimaryContainer.withOpacity(0.7),
+                              color: scheme.onPrimaryContainer.withValues(alpha: 0.7),
                               fontWeight: FontWeight.w500,
                             ),
                           ),
@@ -299,7 +299,7 @@ class _StockListTabState extends ConsumerState<StockListTab>
                         color: scheme.onPrimaryContainer,
                       ),
                       style: IconButton.styleFrom(
-                        backgroundColor: Colors.white.withOpacity(0.3),
+                        backgroundColor: Colors.white.withValues(alpha: 0.3),
                       ),
                     ),
                   ],
@@ -458,9 +458,9 @@ class _StockListTabState extends ConsumerState<StockListTab>
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: color.withOpacity(0.2)),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -473,7 +473,7 @@ class _StockListTabState extends ConsumerState<StockListTab>
                 label,
                 style: TextStyle(
                   fontSize: 12,
-                  color: color.withOpacity(0.8),
+                  color: color.withValues(alpha: 0.8),
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -588,9 +588,9 @@ class _StockListTabState extends ConsumerState<StockListTab>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -622,17 +622,27 @@ class _StockListTabState extends ConsumerState<StockListTab>
           // Tabs
           Container(
             color: Colors.white,
-            child: TabBar(
-              controller: _tabController,
-              labelColor: Colors.blue,
-              unselectedLabelColor: Colors.grey[600],
-              indicatorColor: Colors.blue,
-              tabs: const [
-                Tab(text: 'Tất cả'),
-                Tab(text: 'Còn hàng'),
-                Tab(text: 'Sắp hết'),
-                Tab(text: 'Hết hàng'),
-              ],
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final isCompact = constraints.maxWidth < 520;
+
+                return TabBar(
+                  controller: _tabController,
+                  isScrollable: isCompact,
+                  labelPadding: isCompact
+                      ? const EdgeInsets.symmetric(horizontal: 12)
+                      : null,
+                  labelColor: Colors.blue,
+                  unselectedLabelColor: Colors.grey[600],
+                  indicatorColor: Colors.blue,
+                  tabs: const [
+                    Tab(text: 'Tất cả'),
+                    Tab(text: 'Còn hàng'),
+                    Tab(text: 'Sắp hết'),
+                    Tab(text: 'Hết hàng'),
+                  ],
+                );
+              },
             ),
           ),
           // Search and filter bar
@@ -661,138 +671,167 @@ class _StockListTabState extends ConsumerState<StockListTab>
   }
 
   Widget _buildFilterBar(InventoryFilter filter) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      color: Colors.white,
-      child: Row(
-        children: [
-          // Search field
-          Expanded(
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: 'Tìm kiếm theo mã SKU, tên sản phẩm, barcode',
-                prefixIcon: const Icon(Icons.search, size: 20),
-                suffixIcon: _searchController.text.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear, size: 18),
-                        onPressed: () {
-                          _searchController.clear();
-                          ref
-                              .read(inventoryFilterProvider.notifier)
-                              .update(
-                                (state) => state.copyWith(searchQuery: ''),
-                              );
-                        },
-                      )
-                    : null,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(4),
-                  borderSide: BorderSide(color: Colors.grey[300]!),
-                ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-                isDense: true,
-              ),
-              onChanged: (value) {
-                ref
-                    .read(inventoryFilterProvider.notifier)
-                    .update((state) => state.copyWith(searchQuery: value));
-              },
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isNarrow = constraints.maxWidth < 900;
+
+        final searchField = TextField(
+          controller: _searchController,
+          decoration: InputDecoration(
+            hintText: 'Tìm kiếm theo mã SKU, tên sản phẩm, barcode',
+            prefixIcon: const Icon(Icons.search, size: 20),
+            suffixIcon: _searchController.text.isNotEmpty
+                ? IconButton(
+                    icon: const Icon(Icons.clear, size: 18),
+                    onPressed: () {
+                      _searchController.clear();
+                      ref.read(inventoryFilterProvider.notifier).update(
+                            (state) => state.copyWith(searchQuery: ''),
+                          );
+                    },
+                  )
+                : null,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(4),
+              borderSide: BorderSide(color: Colors.grey[300]!),
             ),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 8,
+            ),
+            isDense: true,
           ),
-          const SizedBox(width: 12),
-          // Date filter
-          _buildDateFilterButton(filter),
-          const SizedBox(width: 8),
-          // Category filter
-          _buildCategoryFilterButton(filter),
-          const SizedBox(width: 8),
-          // Clear filters button
-          if (filter.hasActiveFilters)
-            OutlinedButton.icon(
-              onPressed: _clearAllFilters,
-              icon: const Icon(Icons.clear_all, size: 18),
-              label: Text('Xóa bộ lọc (${filter.activeFilterCount})'),
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-                foregroundColor: Colors.red,
+          onChanged: (value) {
+            ref
+                .read(inventoryFilterProvider.notifier)
+                .update((state) => state.copyWith(searchQuery: value));
+          },
+        );
+
+        final clearFiltersButton = OutlinedButton.icon(
+          onPressed: _clearAllFilters,
+          icon: const Icon(Icons.clear_all, size: 18),
+          label: Text('Xóa bộ lọc (${filter.activeFilterCount})'),
+          style: OutlinedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 8,
+            ),
+            foregroundColor: Colors.red,
+          ),
+        );
+
+        final exportButton = OutlinedButton.icon(
+          onPressed: _isExporting ? null : _exportToExcel,
+          icon: _isExporting
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.file_download, size: 18),
+          label: const Text('Xuất Excel'),
+          style: OutlinedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          ),
+        );
+
+        final importButton = PopupMenuButton<String>(
+          onSelected: (value) {
+            if (value == 'import') {
+              _importFromExcel();
+            } else if (value == 'template') {
+              _downloadTemplate();
+            }
+          },
+          itemBuilder: (context) => [
+            const PopupMenuItem(
+              value: 'import',
+              child: Row(
+                children: [
+                  Icon(Icons.file_upload, size: 18),
+                  SizedBox(width: 8),
+                  Text('Nhập từ Excel'),
+                ],
               ),
             ),
-          if (filter.hasActiveFilters) const SizedBox(width: 8),
-          const Spacer(),
-          // Export button
-          OutlinedButton.icon(
-            onPressed: _isExporting ? null : _exportToExcel,
-            icon: _isExporting
+            const PopupMenuItem(
+              value: 'template',
+              child: Row(
+                children: [
+                  Icon(Icons.download, size: 18),
+                  SizedBox(width: 8),
+                  Text('Tải file mẫu'),
+                ],
+              ),
+            ),
+          ],
+          child: OutlinedButton.icon(
+            onPressed: null,
+            icon: _isImporting
                 ? const SizedBox(
                     width: 16,
                     height: 16,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Icon(Icons.file_download, size: 18),
-            label: const Text('Xuất Excel'),
+                : const Icon(Icons.file_upload, size: 18),
+            label: const Text('Nhập Excel'),
             style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 8,
+              ),
             ),
           ),
-          const SizedBox(width: 8),
-          // Import button
-          PopupMenuButton<String>(
-            onSelected: (value) {
-              if (value == 'import') {
-                _importFromExcel();
-              } else if (value == 'template') {
-                _downloadTemplate();
-              }
-            },
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'import',
-                child: Row(
+        );
+
+        if (isNarrow) {
+          return Container(
+            padding: const EdgeInsets.all(16),
+            color: Colors.white,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                searchField,
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
                   children: [
-                    Icon(Icons.file_upload, size: 18),
-                    SizedBox(width: 8),
-                    Text('Nhập từ Excel'),
+                    _buildDateFilterButton(filter),
+                    _buildCategoryFilterButton(filter),
+                    if (filter.hasActiveFilters) clearFiltersButton,
+                    exportButton,
+                    importButton,
                   ],
                 ),
-              ),
-              const PopupMenuItem(
-                value: 'template',
-                child: Row(
-                  children: [
-                    Icon(Icons.download, size: 18),
-                    SizedBox(width: 8),
-                    Text('Tải file mẫu'),
-                  ],
-                ),
-              ),
+              ],
+            ),
+          );
+        }
+
+        return Container(
+          padding: const EdgeInsets.all(16),
+          color: Colors.white,
+          child: Row(
+            children: [
+              Expanded(child: searchField),
+              const SizedBox(width: 12),
+              _buildDateFilterButton(filter),
+              const SizedBox(width: 8),
+              _buildCategoryFilterButton(filter),
+              if (filter.hasActiveFilters) ...[
+                const SizedBox(width: 8),
+                clearFiltersButton,
+              ],
+              const Spacer(),
+              exportButton,
+              const SizedBox(width: 8),
+              importButton,
             ],
-            child: OutlinedButton.icon(
-              onPressed: null,
-              icon: _isImporting
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.file_upload, size: 18),
-              label: const Text('Nhập Excel'),
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-              ),
-            ),
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -906,7 +945,7 @@ class _StockListTabState extends ConsumerState<StockListTab>
         onPressed: null,
         style: OutlinedButton.styleFrom(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          backgroundColor: hasDateFilter ? Colors.blue.withOpacity(0.1) : null,
+          backgroundColor: hasDateFilter ? Colors.blue.withValues(alpha: 0.1) : null,
           side: hasDateFilter ? const BorderSide(color: Colors.blue) : null,
         ),
         child: Row(
@@ -1085,7 +1124,7 @@ class _StockListTabState extends ConsumerState<StockListTab>
             onPressed: null,
             style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              backgroundColor: hasFilter ? Colors.blue.withOpacity(0.1) : null,
+              backgroundColor: hasFilter ? Colors.blue.withValues(alpha: 0.1) : null,
               side: hasFilter ? const BorderSide(color: Colors.blue) : null,
             ),
             child: Row(
@@ -1128,7 +1167,7 @@ class _StockListTabState extends ConsumerState<StockListTab>
           ],
         ),
       ),
-      error: (_, __) => OutlinedButton(
+      error: (error, stack) => OutlinedButton(
         onPressed: null,
         style: OutlinedButton.styleFrom(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),

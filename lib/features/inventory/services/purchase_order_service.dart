@@ -1,4 +1,3 @@
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/services/supabase_service.dart';
 import '../models/purchase_order_model.dart';
 import '../models/purchase_order_item_model.dart';
@@ -6,8 +5,6 @@ import '../models/supplier_model.dart';
 
 /// Purchase order service for managing purchase orders
 class PurchaseOrderService {
-  final SupabaseClient _supabase = SupabaseService.instance.client;
-
   /// Get all purchase orders with filters
   Future<List<PurchaseOrder>> getPurchaseOrders({
     PurchaseOrderStatus? status,
@@ -16,53 +13,42 @@ class PurchaseOrderService {
     DateTime? endDate,
   }) async {
     try {
-      var query = _supabase.from('purchase_orders').select('''
-            *,
-            suppliers:supplier_id(id, name),
-            received_by_profile:profiles!purchase_orders_received_by_fkey(id, full_name),
-            created_by_profile:profiles!purchase_orders_created_by_fkey(id, full_name)
-          ''');
+      final supabase = SupabaseService.client;
+      final data = await supabase
+          .from('purchase_orders')
+          .select('*, supplier:suppliers(name), items:purchase_order_items(*)')
+          .order('created_at', ascending: false);
+
+      var orders = (data as List<dynamic>).map((item) {
+        final order = Map<String, dynamic>.from(item as Map);
+        return PurchaseOrder.fromJson({
+          ...order,
+          'supplier_name': (order['supplier'] as Map?)?['name'],
+          'items': order['items'] ?? [],
+        });
+      }).toList();
 
       if (status != null) {
-        query = query.eq('status', status.value);
+        orders = orders.where((o) => o.status == status).toList();
       }
 
       if (searchQuery != null && searchQuery.isNotEmpty) {
-        query = query.or('order_number.ilike.%$searchQuery%');
+        final queryLower = searchQuery.toLowerCase();
+        orders = orders
+            .where((o) => o.orderNumber.toLowerCase().contains(queryLower))
+            .toList();
       }
 
       if (startDate != null) {
-        query = query.gte('created_at', startDate.toIso8601String());
+        orders = orders.where((o) => o.createdAt.isAfter(startDate)).toList();
       }
 
       if (endDate != null) {
-        query = query.lte('created_at', endDate.toIso8601String());
+        final end = endDate.add(const Duration(days: 1));
+        orders = orders.where((o) => o.createdAt.isBefore(end)).toList();
       }
 
-      final response = await query.order('created_at', ascending: false);
-
-      return (response as List).map((item) {
-        final data = Map<String, dynamic>.from(item);
-
-        // Extract supplier name
-        if (data['suppliers'] != null) {
-          data['supplier_name'] = data['suppliers']['name'];
-        }
-
-        // Extract received by name
-        if (data['received_by_profile'] != null &&
-            data['received_by_profile'] is Map) {
-          data['received_by_name'] = data['received_by_profile']['full_name'];
-        }
-
-        // Extract created by name
-        if (data['created_by_profile'] != null &&
-            data['created_by_profile'] is Map) {
-          data['created_by_name'] = data['created_by_profile']['full_name'];
-        }
-
-        return PurchaseOrder.fromJson(data);
-      }).toList();
+      return orders;
     } catch (e) {
       throw Exception('Lỗi khi tải danh sách đơn nhập hàng: ${e.toString()}');
     }
@@ -71,58 +57,20 @@ class PurchaseOrderService {
   /// Get purchase order by ID with items
   Future<PurchaseOrder?> getPurchaseOrderById(String orderId) async {
     try {
-      final response = await _supabase
+      final supabase = SupabaseService.client;
+      final data = await supabase
           .from('purchase_orders')
-          .select('''
-            *,
-            suppliers:supplier_id(id, name),
-            received_by_profile:profiles!purchase_orders_received_by_fkey(id, full_name),
-            created_by_profile:profiles!purchase_orders_created_by_fkey(id, full_name),
-            purchase_order_items(
-              *,
-              products(id, name, unit)
-            )
-          ''')
+          .select('*, supplier:suppliers(name), items:purchase_order_items(*)')
           .eq('id', orderId)
-          .maybeSingle();
+          .single();
 
-      if (response == null) return null;
-
-      final data = Map<String, dynamic>.from(response);
-
-      // Extract supplier name
-      if (data['suppliers'] != null) {
-        data['supplier_name'] = data['suppliers']['name'];
-      }
-
-      // Extract received by name
-      if (data['received_by_profile'] != null &&
-          data['received_by_profile'] is Map) {
-        data['received_by_name'] = data['received_by_profile']['full_name'];
-      }
-
-      // Extract created by name
-      if (data['created_by_profile'] != null &&
-          data['created_by_profile'] is Map) {
-        data['created_by_name'] = data['created_by_profile']['full_name'];
-      }
-
-      // Process items
-      if (data['purchase_order_items'] != null) {
-        final items = (data['purchase_order_items'] as List).map((item) {
-          final itemData = Map<String, dynamic>.from(item);
-          if (itemData['products'] != null) {
-            itemData['product_name'] = itemData['products']['name'];
-            itemData['product_unit'] = itemData['products']['unit'];
-          }
-          return PurchaseOrderItem.fromJson(itemData);
-        }).toList();
-        data['items'] = items;
-      }
-
-      return PurchaseOrder.fromJson(data);
+      return PurchaseOrder.fromJson({
+        ...data,
+        'supplier_name': (data['supplier'] as Map?)?['name'],
+        'items': data['items'] ?? [],
+      });
     } catch (e) {
-      throw Exception('Lỗi khi tải đơn nhập hàng: ${e.toString()}');
+      return null;
     }
   }
 
@@ -136,50 +84,32 @@ class PurchaseOrderService {
     String? receivedById,
   }) async {
     try {
-      // Calculate total amount
-      final totalAmount = items.fold<double>(
-        0,
-        (sum, item) => sum + item.subtotal,
-      );
-
-      // Get current user
-      final userId = _supabase.auth.currentUser?.id;
-
-      // Insert purchase order
-      final orderResponse = await _supabase
-          .from('purchase_orders')
-          .insert({
-            'order_number': orderNumber,
-            'supplier_id': supplierId,
-            'status': PurchaseOrderStatus.pending.value,
-            'total_amount': totalAmount,
-            'warehouse': warehouse,
-            'notes': notes,
-            'received_by': receivedById,
-            'created_by': userId,
-          })
-          .select()
-          .single();
-
-      final orderId = orderResponse['id'] as String;
-
-      // Insert purchase order items
-      final itemsData = items
+      final supabase = SupabaseService.client;
+      final payloadItems = items
           .map(
             (item) => {
-              'purchase_order_id': orderId,
               'product_id': item.productId,
               'quantity': item.quantity,
               'unit_price': item.unitPrice,
-              'subtotal': item.subtotal,
             },
           )
           .toList();
 
-      await _supabase.from('purchase_order_items').insert(itemsData);
+      final data = await supabase.rpc('create_purchase_order', params: {
+        'p_items': payloadItems,
+        'p_order_number': orderNumber,
+        'p_supplier_id': supplierId,
+        'p_warehouse': warehouse,
+        'p_notes': notes,
+      });
 
-      // Fetch the complete order with items
-      return (await getPurchaseOrderById(orderId))!;
+      final payload = Map<String, dynamic>.from(data as Map);
+      final orderJson = Map<String, dynamic>.from(payload['order'] as Map);
+      return PurchaseOrder.fromJson({
+        ...orderJson,
+        'supplier_name': null,
+        'items': payloadItems,
+      });
     } catch (e) {
       throw Exception('Lỗi khi tạo đơn nhập hàng: ${e.toString()}');
     }
@@ -190,39 +120,43 @@ class PurchaseOrderService {
     required String orderId,
     required PurchaseOrderStatus status,
   }) async {
-    try {
-      await _supabase
-          .from('purchase_orders')
-          .update({'status': status.value})
-          .eq('id', orderId);
+    final supabase = SupabaseService.client;
+    final data = await supabase
+        .from('purchase_orders')
+        .update({'status': status.value, 'updated_at': DateTime.now().toIso8601String()})
+        .eq('id', orderId)
+        .select('*, supplier:suppliers(name), items:purchase_order_items(*)')
+        .single();
 
-      return (await getPurchaseOrderById(orderId))!;
-    } catch (e) {
-      throw Exception('Lỗi khi cập nhật trạng thái: ${e.toString()}');
-    }
+    return PurchaseOrder.fromJson({
+      ...data,
+      'supplier_name': (data['supplier'] as Map?)?['name'],
+      'items': data['items'] ?? [],
+    });
   }
 
   /// Delete purchase order
   Future<void> deletePurchaseOrder(String orderId) async {
-    try {
-      await _supabase.from('purchase_orders').delete().eq('id', orderId);
-    } catch (e) {
-      throw Exception('Lỗi khi xóa đơn nhập hàng: ${e.toString()}');
-    }
+    final supabase = SupabaseService.client;
+    await supabase.from('purchase_orders').delete().eq('id', orderId);
   }
 
   /// Get all suppliers
   Future<List<Supplier>> getSuppliers({bool activeOnly = true}) async {
     try {
-      var query = _supabase.from('suppliers').select();
+      final supabase = SupabaseService.client;
+      final data = await supabase
+          .from('suppliers')
+          .select('*')
+          .order('created_at', ascending: false);
 
+      var suppliers = (data as List<dynamic>)
+          .map((item) => Supplier.fromJson(item as Map<String, dynamic>))
+          .toList();
       if (activeOnly) {
-        query = query.eq('is_active', true);
+        suppliers = suppliers.where((s) => s.isActive).toList();
       }
-
-      final response = await query.order('name');
-
-      return (response as List).map((item) => Supplier.fromJson(item)).toList();
+      return suppliers;
     } catch (e) {
       throw Exception('Lỗi khi tải danh sách nhà cung cấp: ${e.toString()}');
     }
@@ -238,7 +172,8 @@ class PurchaseOrderService {
     String? taxCode,
   }) async {
     try {
-      final response = await _supabase
+      final supabase = SupabaseService.client;
+      final data = await supabase
           .from('suppliers')
           .insert({
             'code': code,
@@ -248,42 +183,20 @@ class PurchaseOrderService {
             'address': address,
             'tax_code': taxCode,
           })
-          .select()
+          .select('*')
           .single();
 
-      return Supplier.fromJson(response);
+      return Supplier.fromJson(data);
     } catch (e) {
       throw Exception('Lỗi khi tạo nhà cung cấp: ${e.toString()}');
     }
   }
 
-  /// Generate next order number
+  /// Generate next order number (client-side)
   Future<String> generateOrderNumber() async {
-    try {
-      final now = DateTime.now();
-      final prefix = 'PO${now.year}${now.month.toString().padLeft(2, '0')}';
-
-      final response = await _supabase
-          .from('purchase_orders')
-          .select('order_number')
-          .like('order_number', '$prefix%')
-          .order('order_number', ascending: false)
-          .limit(1)
-          .maybeSingle();
-
-      if (response == null) {
-        return '${prefix}0001';
-      }
-
-      final lastNumber = response['order_number'] as String;
-      final lastSequence = int.parse(lastNumber.substring(prefix.length));
-      final nextSequence = (lastSequence + 1).toString().padLeft(4, '0');
-
-      return '$prefix$nextSequence';
-    } catch (e) {
-      // Fallback to timestamp-based number
-      final now = DateTime.now();
-      return 'PO${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}';
-    }
+    final now = DateTime.now();
+    final prefix = 'PO${now.year}${now.month.toString().padLeft(2, '0')}';
+    final sequence = now.millisecondsSinceEpoch.toString().substring(7);
+    return '$prefix$sequence';
   }
 }

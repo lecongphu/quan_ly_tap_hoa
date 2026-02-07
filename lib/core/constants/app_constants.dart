@@ -6,7 +6,7 @@ class AppConstants {
   static const String appName = 'Quản lý Tạp hóa';
   static const String appVersion = '1.0.0';
 
-  // Supabase Configuration (will be set from environment)
+  // Supabase configuration (loaded from .env)
   static final String supabaseUrl = dotenv.env['SUPABASE_URL'] ?? '';
   static final String supabaseAnonKey = dotenv.env['SUPABASE_ANON_KEY'] ?? '';
 
@@ -69,6 +69,9 @@ class AppConstants {
   static const double defaultPadding = 16.0;
   static const double defaultRadius = 8.0;
   static const int defaultPageSize = 20;
+  // Pricing
+  // Keep in sync with Angular POS price calculation: avg_cost_price * 1.3
+  static const double defaultSalePriceMultiplier = 1.3;
 
   // Date Formats
   static const String dateFormat = 'dd/MM/yyyy';
@@ -100,7 +103,6 @@ class ErrorMessages {
   static const String invalidCredentials = 'Email hoặc mật khẩu không đúng.';
   static const String sessionExpired = 'Phiên đăng nhập đã hết hạn.';
   static const String insufficientStock = 'Không đủ hàng trong kho.';
-  static const String debtLimitExceeded = 'Vượt quá hạn mức nợ cho phép.';
   static const String productNotFound = 'Không tìm thấy sản phẩm.';
   static const String customerNotFound = 'Không tìm thấy khách hàng.';
 }

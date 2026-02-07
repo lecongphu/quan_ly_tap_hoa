@@ -61,20 +61,24 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen>
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final horizontalPadding = constraints.maxWidth > 1400 ? 72.w : 28.w;
+            final isMobile = constraints.maxWidth < 760;
+            final isCompact = constraints.maxWidth < 1024;
+            final horizontalPadding =
+                constraints.maxWidth > 1400 ? 72.w : isMobile ? 16.w : 28.w;
 
             return Column(
               children: [
                 Padding(
                   padding: EdgeInsets.fromLTRB(
                     horizontalPadding,
-                    22.h,
+                    isMobile ? 16.h : 22.h,
                     horizontalPadding,
-                    16.h,
+                    isMobile ? 12.h : 16.h,
                   ),
                   child: _InventoryHeader(
                     tabController: _tabController,
                     tabs: _tabs,
+                    isCompact: isCompact,
                   ),
                 ),
                 Padding(
@@ -83,9 +87,11 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen>
                     controller: _tabController,
                     tabs: _tabs,
                     scheme: scheme,
+                    isCompact: isCompact,
+                    isScrollable: isMobile,
                   ),
                 ),
-                SizedBox(height: 14.h),
+                SizedBox(height: isMobile ? 10.h : 14.h),
                 Expanded(
                   child: TabBarView(
                     controller: _tabController,
@@ -107,10 +113,15 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen>
 }
 
 class _InventoryHeader extends StatelessWidget {
-  const _InventoryHeader({required this.tabController, required this.tabs});
+  const _InventoryHeader({
+    required this.tabController,
+    required this.tabs,
+    required this.isCompact,
+  });
 
   final TabController tabController;
   final List<_InventoryTabItem> tabs;
+  final bool isCompact;
 
   @override
   Widget build(BuildContext context) {
@@ -124,21 +135,21 @@ class _InventoryHeader extends StatelessWidget {
 
         return Container(
           width: double.infinity,
-          padding: EdgeInsets.all(24.w),
+          padding: EdgeInsets.all(isCompact ? 18.w : 24.w),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(24),
             gradient: LinearGradient(
               colors: [
-                scheme.primaryContainer.withOpacity(0.9),
-                scheme.secondaryContainer.withOpacity(0.8),
-                scheme.tertiaryContainer.withOpacity(0.7),
+                scheme.primaryContainer.withValues(alpha: 0.9),
+                scheme.secondaryContainer.withValues(alpha: 0.8),
+                scheme.tertiaryContainer.withValues(alpha: 0.7),
               ],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.05),
+                color: Colors.black.withValues(alpha: 0.05),
                 blurRadius: 12,
                 offset: const Offset(0, 6),
               ),
@@ -157,65 +168,102 @@ class _InventoryHeader extends StatelessWidget {
                   children: [
                     Text(
                       tab.label,
-                      style: Theme.of(context).textTheme.headlineSmall
+                      style: (isCompact
+                              ? Theme.of(context).textTheme.titleLarge
+                              : Theme.of(context).textTheme.headlineSmall)
                           ?.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w800,
-                          ),
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                     SizedBox(height: 6.h),
                     Text(
                       tab.description,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: Colors.white.withOpacity(0.92),
+                      maxLines: isCompact ? 2 : 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: (isCompact
+                              ? Theme.of(context).textTheme.bodyMedium
+                              : Theme.of(context).textTheme.titleMedium)
+                          ?.copyWith(
+                        color: Colors.white.withValues(alpha: 0.92),
                         height: 1.4,
                       ),
                     ),
                   ],
                 ),
               ),
-              Container(
-                padding: EdgeInsets.symmetric(horizontal: 18.w, vertical: 14.h),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      padding: EdgeInsets.all(10.w),
-                      decoration: BoxDecoration(
-                        color: scheme.primary.withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(14),
+              if (!isCompact)
+                Container(
+                  padding:
+                      EdgeInsets.symmetric(horizontal: 18.w, vertical: 14.h),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        padding: EdgeInsets.all(10.w),
+                        decoration: BoxDecoration(
+                          color: scheme.primary.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child:
+                            Icon(tab.icon, color: scheme.primary, size: 24.sp),
                       ),
-                      child: Icon(tab.icon, color: scheme.primary, size: 24.sp),
-                    ),
-                    SizedBox(width: 12.w),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Không gian làm việc',
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(
-                                color: scheme.onSurfaceVariant,
-                                fontWeight: FontWeight.w600,
-                              ),
-                        ),
-                        Text(
-                          'Kho hàng',
-                          style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(
-                                fontWeight: FontWeight.w800,
-                                color: scheme.primary,
-                              ),
-                        ),
-                      ],
-                    ),
-                  ],
+                      SizedBox(width: 12.w),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Không gian làm việc',
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodyMedium
+                                ?.copyWith(
+                                  color: scheme.onSurfaceVariant,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                          ),
+                          Text(
+                            'Kho hàng',
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(
+                                  fontWeight: FontWeight.w800,
+                                  color: scheme.primary,
+                                ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                )
+              else
+                Container(
+                  padding:
+                      EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(tab.icon, color: scheme.primary, size: 20.sp),
+                      SizedBox(width: 8.w),
+                      Text(
+                        'Kho hàng',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: scheme.primary,
+                            ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
             ],
           ),
         );
@@ -229,23 +277,30 @@ class _InventoryTabBar extends StatelessWidget {
     required this.controller,
     required this.tabs,
     required this.scheme,
+    required this.isCompact,
+    required this.isScrollable,
   });
 
   final TabController controller;
   final List<_InventoryTabItem> tabs;
   final ColorScheme scheme;
+  final bool isCompact;
+  final bool isScrollable;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.symmetric(vertical: 4.w, horizontal: 6.w),
+      padding: EdgeInsets.symmetric(
+        vertical: isCompact ? 2.w : 4.w,
+        horizontal: isCompact ? 4.w : 6.w,
+      ),
       decoration: BoxDecoration(
-        color: scheme.surfaceVariant.withOpacity(0.6),
+        color: scheme.surfaceContainerHighest.withValues(alpha: 0.6),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: scheme.outlineVariant.withOpacity(0.12)),
+        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.12)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
+            color: Colors.black.withValues(alpha: 0.08),
             blurRadius: 12,
             offset: const Offset(0, 6),
           ),
@@ -253,6 +308,7 @@ class _InventoryTabBar extends StatelessWidget {
       ),
       child: TabBar(
         controller: controller,
+        isScrollable: isScrollable,
         indicatorSize: TabBarIndicatorSize.tab,
         dividerColor: Colors.transparent,
         indicator: BoxDecoration(
@@ -260,7 +316,7 @@ class _InventoryTabBar extends StatelessWidget {
           borderRadius: BorderRadius.circular(14),
           boxShadow: [
             BoxShadow(
-              color: scheme.primary.withOpacity(0.2),
+              color: scheme.primary.withValues(alpha: 0.2),
               blurRadius: 12,
               offset: const Offset(0, 6),
             ),
@@ -268,17 +324,23 @@ class _InventoryTabBar extends StatelessWidget {
         ),
         labelColor: scheme.onPrimary,
         unselectedLabelColor: scheme.onSurfaceVariant,
-        labelStyle: TextStyle(fontWeight: FontWeight.w600, fontSize: 15.sp),
+        labelStyle: TextStyle(
+          fontWeight: FontWeight.w600,
+          fontSize: isCompact ? 13.sp : 15.sp,
+        ),
         unselectedLabelStyle: TextStyle(
           fontWeight: FontWeight.w500,
-          fontSize: 14.sp,
+          fontSize: isCompact ? 12.sp : 14.sp,
         ),
+        labelPadding: isScrollable
+            ? EdgeInsets.symmetric(horizontal: 12.w)
+            : EdgeInsets.zero,
         tabs: tabs
             .map(
               (tab) => Tab(
-                height: 64.h,
-                iconMargin: EdgeInsets.only(bottom: 6.h),
-                icon: Icon(tab.icon, size: 22.sp),
+                height: isCompact ? 48.h : 64.h,
+                iconMargin: isCompact ? EdgeInsets.zero : EdgeInsets.only(bottom: 6.h),
+                icon: Icon(tab.icon, size: isCompact ? 20.sp : 22.sp),
                 text: tab.label,
               ),
             )

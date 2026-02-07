@@ -1,16 +1,9 @@
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/services/supabase_service.dart';
-import '../../../core/constants/app_constants.dart';
 import '../models/product_model.dart';
 
 /// Inventory service for product and stock management
 class InventoryService {
-  final SupabaseClient _supabase = SupabaseService.instance.client;
-
   /// Get all products with current inventory
-  ///
-  /// [stockStatus] can be: 'all', 'in_stock', 'out_of_stock', 'low_stock'
-  /// [dateFrom] and [dateTo] filter by created_at date
   Future<List<Product>> getProducts({
     String? categoryId,
     String? searchQuery,
@@ -20,62 +13,70 @@ class InventoryService {
     bool activeOnly = true,
   }) async {
     try {
-      var query = _supabase.from('current_inventory').select();
+      final supabase = SupabaseService.client;
+      var query = supabase
+          .from('products')
+          .select('*, category:categories(name)');
 
       if (activeOnly) {
-        // Note: current_inventory view already filters active products
+        query = query.eq('is_active', true);
       }
 
+      final products = await query.order('created_at', ascending: false);
+      final inventoryRows =
+          await supabase.from('current_inventory').select('*');
+
+      final inventoryMap = <String, Map<String, dynamic>>{};
+      for (final row in inventoryRows) {
+        inventoryMap[row['product_id'] as String] =
+            Map<String, dynamic>.from(row as Map);
+      }
+
+      var mapped = (products as List<dynamic>).map((item) {
+        final product = Map<String, dynamic>.from(item as Map);
+        final inventory = inventoryMap[product['id'] as String];
+        return Product.fromJson({
+          ...product,
+          'category_name': (product['category'] as Map?)?['name'],
+          'total_quantity': inventory?['total_quantity'],
+          'avg_cost_price': inventory?['avg_cost_price'],
+          'nearest_expiry_date': inventory?['nearest_expiry_date'],
+        });
+      }).toList();
+
       if (categoryId != null) {
-        query = query.eq('category_id', categoryId);
+        mapped = mapped.where((p) => p.categoryId == categoryId).toList();
       }
 
       if (searchQuery != null && searchQuery.isNotEmpty) {
-        query = query.or(
-          'name.ilike.%$searchQuery%,barcode.ilike.%$searchQuery%',
-        );
-      }
-
-      // Filter by stock status
-      switch (stockStatus) {
-        case 'in_stock':
-          query = query.gt('total_quantity', 0);
-          break;
-        case 'out_of_stock':
-          query = query.or('total_quantity.is.null,total_quantity.lte.0');
-          break;
-        case 'low_stock':
-          // Products where stock <= min_stock_level
-          query = query.not('min_stock_level', 'eq', 0);
-          break;
-      }
-
-      // Filter by date range
-      if (dateFrom != null) {
-        query = query.gte('created_at', dateFrom.toIso8601String());
-      }
-      if (dateTo != null) {
-        // Add 1 day to include the end date
-        final endDate = dateTo.add(const Duration(days: 1));
-        query = query.lt('created_at', endDate.toIso8601String());
-      }
-
-      final response = await query.order('name');
-
-      List<Product> products = (response as List)
-          .map((item) => Product.fromJson(item))
-          .toList();
-
-      // Additional client-side filtering for low_stock
-      // (since SQL comparison with min_stock_level requires more complex query)
-      if (stockStatus == 'low_stock') {
-        products = products.where((p) {
-          return p.minStockLevel > 0 &&
-              (p.currentStock ?? 0) <= p.minStockLevel;
+        final queryLower = searchQuery.toLowerCase();
+        mapped = mapped.where((p) {
+          return p.name.toLowerCase().contains(queryLower) ||
+              (p.barcode?.toLowerCase().contains(queryLower) ?? false);
         }).toList();
       }
 
-      return products;
+      switch (stockStatus) {
+        case 'in_stock':
+          mapped = mapped.where((p) => !p.isOutOfStock).toList();
+          break;
+        case 'out_of_stock':
+          mapped = mapped.where((p) => p.isOutOfStock).toList();
+          break;
+        case 'low_stock':
+          mapped = mapped.where((p) => p.isLowStock).toList();
+          break;
+      }
+
+      if (dateFrom != null) {
+        mapped = mapped.where((p) => p.createdAt.isAfter(dateFrom)).toList();
+      }
+      if (dateTo != null) {
+        final endDate = dateTo.add(const Duration(days: 1));
+        mapped = mapped.where((p) => p.createdAt.isBefore(endDate)).toList();
+      }
+
+      return mapped;
     } catch (e) {
       throw Exception('Lỗi khi tải danh sách sản phẩm: ${e.toString()}');
     }
@@ -84,14 +85,28 @@ class InventoryService {
   /// Get product by ID
   Future<Product?> getProductById(String productId) async {
     try {
-      final response = await _supabase
+      final supabase = SupabaseService.client;
+      final product = await supabase
+          .from('products')
+          .select('*, category:categories(name)')
+          .eq('id', productId)
+          .maybeSingle();
+
+      if (product == null) return null;
+
+      final inventory = await supabase
           .from('current_inventory')
-          .select()
+          .select('*')
           .eq('product_id', productId)
           .maybeSingle();
 
-      if (response == null) return null;
-      return Product.fromJson(response);
+      return Product.fromJson({
+        ...Map<String, dynamic>.from(product),
+        'category_name': (product['category'] as Map?)?['name'],
+        'total_quantity': inventory?['total_quantity'],
+        'avg_cost_price': inventory?['avg_cost_price'],
+        'nearest_expiry_date': inventory?['nearest_expiry_date'],
+      });
     } catch (e) {
       throw Exception('Lỗi khi tải sản phẩm: ${e.toString()}');
     }
@@ -100,14 +115,28 @@ class InventoryService {
   /// Get product by barcode
   Future<Product?> getProductByBarcode(String barcode) async {
     try {
-      final response = await _supabase
-          .from('current_inventory')
-          .select()
+      final supabase = SupabaseService.client;
+      final product = await supabase
+          .from('products')
+          .select('*, category:categories(name)')
           .eq('barcode', barcode)
           .maybeSingle();
 
-      if (response == null) return null;
-      return Product.fromJson(response);
+      if (product == null) return null;
+
+      final inventory = await supabase
+          .from('current_inventory')
+          .select('*')
+          .eq('product_id', product['id'] as String)
+          .maybeSingle();
+
+      return Product.fromJson({
+        ...Map<String, dynamic>.from(product),
+        'category_name': (product['category'] as Map?)?['name'],
+        'total_quantity': inventory?['total_quantity'],
+        'avg_cost_price': inventory?['avg_cost_price'],
+        'nearest_expiry_date': inventory?['nearest_expiry_date'],
+      });
     } catch (e) {
       throw Exception('Lỗi khi tìm sản phẩm: ${e.toString()}');
     }
@@ -116,56 +145,17 @@ class InventoryService {
   /// Get all categories
   Future<List<Category>> getCategories() async {
     try {
-      final response = await _supabase
-          .from(AppConstants.tableCategories)
-          .select()
-          .order('name');
+      final supabase = SupabaseService.client;
+      final data = await supabase
+          .from('categories')
+          .select('*')
+          .order('name', ascending: true);
 
-      return (response as List).map((item) => Category.fromJson(item)).toList();
-    } catch (e) {
-      throw Exception('Lỗi khi tải danh mục: ${e.toString()}');
-    }
-  }
-
-  /// Get inventory batches for a product (for FEFO)
-  Future<List<InventoryBatch>> getProductBatches(String productId) async {
-    try {
-      final response = await _supabase
-          .from(AppConstants.tableInventoryBatches)
-          .select()
-          .eq('product_id', productId)
-          .gt('quantity', 0)
-          .order('expiry_date', ascending: true)
-          .order('received_date', ascending: true);
-
-      return (response as List)
-          .map((item) => InventoryBatch.fromJson(item))
+      return (data as List<dynamic>)
+          .map((item) => Category.fromJson(item as Map<String, dynamic>))
           .toList();
     } catch (e) {
-      throw Exception('Lỗi khi tải lô hàng: ${e.toString()}');
-    }
-  }
-
-  /// Get FEFO batch for a product (First Expired, First Out)
-  Future<InventoryBatch?> getFEFOBatch(
-    String productId,
-    double quantity,
-  ) async {
-    try {
-      final batches = await getProductBatches(productId);
-
-      // Find first batch with enough quantity
-      for (var batch in batches) {
-        if (batch.quantity >= quantity) {
-          return batch;
-        }
-      }
-
-      // If no single batch has enough, return the first batch
-      // (caller will need to handle multiple batches)
-      return batches.isNotEmpty ? batches.first : null;
-    } catch (e) {
-      throw Exception('Lỗi khi lấy lô hàng FEFO: ${e.toString()}');
+      throw Exception('Lỗi khi tải danh mục: ${e.toString()}');
     }
   }
 
@@ -174,12 +164,13 @@ class InventoryService {
     int daysThreshold = 7,
   }) async {
     try {
-      final response = await _supabase.rpc(
-        'get_products_near_expiry',
-        params: {'days_threshold': daysThreshold},
+      final supabase = SupabaseService.client;
+      final data = await supabase.rpc('get_products_near_expiry', params: {
+        'days_threshold': daysThreshold,
+      });
+      return List<Map<String, dynamic>>.from(
+        (data as List<dynamic>? ?? const []),
       );
-
-      return List<Map<String, dynamic>>.from(response as List);
     } catch (e) {
       throw Exception('Lỗi khi tải hàng sắp hết hạn: ${e.toString()}');
     }
@@ -188,8 +179,11 @@ class InventoryService {
   /// Get low stock products
   Future<List<Map<String, dynamic>>> getLowStockProducts() async {
     try {
-      final response = await _supabase.rpc('get_low_stock_products');
-      return List<Map<String, dynamic>>.from(response as List);
+      final supabase = SupabaseService.client;
+      final data = await supabase.rpc('get_low_stock_products');
+      return List<Map<String, dynamic>>.from(
+        (data as List<dynamic>? ?? const []),
+      );
     } catch (e) {
       throw Exception('Lỗi khi tải hàng tồn kho thấp: ${e.toString()}');
     }
@@ -204,19 +198,24 @@ class InventoryService {
     double minStockLevel = 0,
   }) async {
     try {
-      final response = await _supabase
-          .from(AppConstants.tableProducts)
+      final supabase = SupabaseService.client;
+      final data = await supabase
+          .from('products')
           .insert({
             'name': name,
             'barcode': barcode,
             'category_id': categoryId,
             'unit': unit,
             'min_stock_level': minStockLevel,
+            'is_active': true,
           })
-          .select()
+          .select('*, category:categories(name)')
           .single();
 
-      return Product.fromJson(response);
+      return Product.fromJson({
+        ...data,
+        'category_name': (data['category'] as Map?)?['name'],
+      });
     } catch (e) {
       throw Exception('Lỗi khi thêm sản phẩm: ${e.toString()}');
     }
@@ -241,14 +240,18 @@ class InventoryService {
       if (minStockLevel != null) updates['min_stock_level'] = minStockLevel;
       if (isActive != null) updates['is_active'] = isActive;
 
-      final response = await _supabase
-          .from(AppConstants.tableProducts)
+      final supabase = SupabaseService.client;
+      final data = await supabase
+          .from('products')
           .update(updates)
           .eq('id', productId)
-          .select()
+          .select('*, category:categories(name)')
           .single();
 
-      return Product.fromJson(response);
+      return Product.fromJson({
+        ...data,
+        'category_name': (data['category'] as Map?)?['name'],
+      });
     } catch (e) {
       throw Exception('Lỗi khi cập nhật sản phẩm: ${e.toString()}');
     }
@@ -264,22 +267,18 @@ class InventoryService {
     DateTime? receivedDate,
   }) async {
     try {
-      final response = await _supabase
-          .from(AppConstants.tableInventoryBatches)
-          .insert({
-            'product_id': productId,
-            'quantity': quantity,
-            'cost_price': costPrice,
-            'batch_number': batchNumber,
-            'expiry_date': expiryDate?.toIso8601String().split('T')[0],
-            'received_date': (receivedDate ?? DateTime.now())
-                .toIso8601String()
-                .split('T')[0],
-          })
-          .select()
-          .single();
+      final supabase = SupabaseService.client;
+      final data = await supabase.rpc('stock_in', params: {
+        'p_product_id': productId,
+        'p_quantity': quantity,
+        'p_cost_price': costPrice,
+        'p_batch_number': batchNumber,
+        'p_expiry_date': expiryDate?.toIso8601String().split('T').first,
+        'p_received_date':
+            (receivedDate ?? DateTime.now()).toIso8601String().split('T').first,
+      });
 
-      return InventoryBatch.fromJson(response);
+      return InventoryBatch.fromJson(Map<String, dynamic>.from(data as Map));
     } catch (e) {
       throw Exception('Lỗi khi nhập kho: ${e.toString()}');
     }

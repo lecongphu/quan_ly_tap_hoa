@@ -8,6 +8,9 @@
 *.pyc
 *.swp
 .DS_Store
+node_modules/
+keystore/
+play_console_assets/
 .atom/
 .buildlog/
 .history
@@ -46,6 +49,12 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Android signing
+android/key.properties
+android/*.jks
+android/*.keystore
+android/keystore/
 
 # Windows
 windows/flutter/ephemeral/

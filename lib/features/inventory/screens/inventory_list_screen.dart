@@ -124,7 +124,7 @@ class _InventoryListScreenState extends ConsumerState<InventoryListScreen> {
                     );
                   },
                   loading: () => const SizedBox.shrink(),
-                  error: (_, __) => const SizedBox.shrink(),
+                  error: (error, stack) => const SizedBox.shrink(),
                 ),
               ],
             ),

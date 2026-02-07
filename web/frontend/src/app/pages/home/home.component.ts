@@ -36,7 +36,7 @@ export class HomeComponent {
     },
     {
       title: 'Khách hàng',
-      subtitle: 'Quản lý thông tin & hạn mức',
+      subtitle: 'Quản lý thông tin khách hàng',
       icon: 'groups',
       color: '#0f766e',
       route: '/customers'

@@ -216,7 +216,7 @@ class _SuppliersTabState extends State<SuppliersTab> {
                 return ListView.separated(
                   padding: const EdgeInsets.all(16),
                   itemCount: filtered.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 12),
+                  separatorBuilder: (_, index) => const SizedBox(height: 12),
                   itemBuilder: (context, index) {
                     return _buildSupplierCard(filtered[index]);
                   },

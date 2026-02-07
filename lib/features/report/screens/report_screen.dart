@@ -39,7 +39,7 @@ class ReportScreen extends StatelessWidget {
                         width: 56.w,
                         height: 56.w,
                         decoration: BoxDecoration(
-                          color: scheme.primary.withOpacity(0.12),
+                          color: scheme.primary.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(16),
                         ),
                         child: Icon(

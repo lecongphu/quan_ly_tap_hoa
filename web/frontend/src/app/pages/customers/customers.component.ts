@@ -24,7 +24,6 @@ export class CustomersComponent implements OnInit {
     name: '',
     phone: '',
     address: '',
-    debt_limit: 0,
     is_active: true
   };
 
@@ -80,14 +79,12 @@ export class CustomersComponent implements OnInit {
           name: customer.name,
           phone: customer.phone ?? '',
           address: customer.address ?? '',
-          debt_limit: customer.debt_limit ?? 0,
           is_active: customer.is_active ?? true
         }
       : {
           name: '',
           phone: '',
           address: '',
-          debt_limit: 0,
           is_active: true
         };
     this.showForm = true;
@@ -104,7 +101,6 @@ export class CustomersComponent implements OnInit {
       name: this.customerForm.name,
       phone: this.customerForm.phone || null,
       address: this.customerForm.address || null,
-      debt_limit: Number(this.customerForm.debt_limit || 0),
       is_active: this.customerForm.is_active ?? true
     };
 

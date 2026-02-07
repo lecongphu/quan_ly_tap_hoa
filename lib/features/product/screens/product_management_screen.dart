@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:intl/intl.dart';
+import '../../../core/constants/app_constants.dart';
 import '../../inventory/models/product_model.dart';
 import '../../inventory/providers/inventory_provider.dart';
 import '../providers/product_provider.dart';
@@ -96,6 +98,7 @@ class _ProductManagementScreenState
     final state = ref.watch(productProvider);
     final categoriesAsync = ref.watch(categoriesProvider);
     final scheme = Theme.of(context).colorScheme;
+    final isMobile = MediaQuery.sizeOf(context).width < 760;
 
     return Scaffold(
       appBar: AppBar(
@@ -103,19 +106,26 @@ class _ProductManagementScreenState
         actions: [
           Padding(
             padding: EdgeInsets.only(right: 12.w),
-            child: FilledButton.tonalIcon(
-              onPressed: () => _showProductForm(),
-              icon: const Icon(Icons.add_rounded),
-              label: const Text('Thêm sản phẩm'),
-            ),
+            child: isMobile
+                ? IconButton.filledTonal(
+                    onPressed: () => _showProductForm(),
+                    icon: const Icon(Icons.add_rounded),
+                    tooltip: 'Thêm sản phẩm',
+                  )
+                : FilledButton.tonalIcon(
+                    onPressed: () => _showProductForm(),
+                    icon: const Icon(Icons.add_rounded),
+                    label: const Text('Thêm sản phẩm'),
+                  ),
           ),
         ],
       ),
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
+            final isCompact = constraints.maxWidth < 900;
             final horizontalPadding =
-                constraints.maxWidth > 1400 ? 72.w : 28.w;
+                constraints.maxWidth > 1400 ? 72.w : isMobile ? 16.w : 28.w;
 
             return RefreshIndicator(
               onRefresh: () async {
@@ -132,9 +142,9 @@ class _ProductManagementScreenState
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _ProductHeader(state: state),
+                    _ProductHeader(state: state, isCompact: isCompact),
                     SizedBox(height: 20.h),
-                    _buildFilterBar(categoriesAsync),
+                    _buildFilterBar(categoriesAsync, isMobile: isMobile),
                     SizedBox(height: 18.h),
                     if (state.isLoading)
                       const Padding(
@@ -144,7 +154,13 @@ class _ProductManagementScreenState
                     else if (state.error != null)
                       _ErrorState(message: state.error!)
                     else
-                      _buildProductTable(state.products, scheme),
+                      isMobile
+                          ? _buildProductList(state.products, scheme)
+                          : _buildProductTable(
+                              state.products,
+                              scheme,
+                              isCompact: isCompact,
+                            ),
                   ],
                 ),
               ),
@@ -152,13 +168,19 @@ class _ProductManagementScreenState
           },
         ),
       ),
-      floatingActionButton: constraintsBasedFab(state.isLoading),
+      floatingActionButton: constraintsBasedFab(state.isLoading, isMobile),
     );
   }
 
-  Widget constraintsBasedFab(bool isLoading) {
+  Widget constraintsBasedFab(bool isLoading, bool isMobile) {
     if (isLoading) {
       return const SizedBox.shrink();
+    }
+    if (isMobile) {
+      return FloatingActionButton(
+        onPressed: () => _showProductForm(),
+        child: const Icon(Icons.add),
+      );
     }
     return FloatingActionButton.extended(
       onPressed: () => _showProductForm(),
@@ -167,7 +189,10 @@ class _ProductManagementScreenState
     );
   }
 
-  Widget _buildFilterBar(AsyncValue<List<Category>> categoriesAsync) {
+  Widget _buildFilterBar(
+    AsyncValue<List<Category>> categoriesAsync, {
+    required bool isMobile,
+  }) {
     final scheme = Theme.of(context).colorScheme;
 
     return Card(
@@ -175,10 +200,10 @@ class _ProductManagementScreenState
         padding: EdgeInsets.all(18.w),
         child: Column(
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
+            if (isMobile)
+              Column(
+                children: [
+                  TextField(
                     controller: _searchController,
                     textInputAction: TextInputAction.search,
                     onSubmitted: (_) => _applySearch(),
@@ -199,12 +224,12 @@ class _ProductManagementScreenState
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(16),
                         borderSide:
-                            BorderSide(color: scheme.outline.withOpacity(0.4)),
+                            BorderSide(color: scheme.outline.withValues(alpha: 0.4)),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(16),
                         borderSide:
-                            BorderSide(color: scheme.outline.withOpacity(0.35)),
+                            BorderSide(color: scheme.outline.withValues(alpha: 0.35)),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(16),
@@ -219,25 +244,97 @@ class _ProductManagementScreenState
                     ),
                     onChanged: (_) => setState(() {}),
                   ),
-                ),
-                SizedBox(width: 10.w),
-                FilledButton.icon(
-                  onPressed: _applySearch,
-                  icon: const Icon(Icons.tune_rounded),
-                  label: const Text('Lọc'),
-                ),
-                SizedBox(width: 8.w),
-                IconButton.filledTonal(
-                  icon: const Icon(Icons.refresh_rounded),
-                  onPressed: () {
-                    _searchController.clear();
-                    ref.read(productProvider.notifier).refresh();
-                    setState(() {});
-                  },
-                  tooltip: 'Làm mới',
-                ),
-              ],
-            ),
+                  SizedBox(height: 12.h),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: FilledButton.icon(
+                          onPressed: _applySearch,
+                          icon: const Icon(Icons.tune_rounded),
+                          label: const Text('Áp dụng'),
+                        ),
+                      ),
+                      SizedBox(width: 10.w),
+                      IconButton.filledTonal(
+                        icon: const Icon(Icons.refresh_rounded),
+                        onPressed: () {
+                          _searchController.clear();
+                          ref.read(productProvider.notifier).refresh();
+                          setState(() {});
+                        },
+                        tooltip: 'Làm mới',
+                      ),
+                    ],
+                  ),
+                ],
+              )
+            else
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _searchController,
+                      textInputAction: TextInputAction.search,
+                      onSubmitted: (_) => _applySearch(),
+                      decoration: InputDecoration(
+                        hintText: 'Tìm kiếm theo tên hoặc mã sản phẩm...',
+                        prefixIcon: const Icon(Icons.search_rounded, size: 20),
+                        suffixIcon: _searchController.text.isEmpty
+                            ? null
+                            : IconButton(
+                                icon: const Icon(Icons.close_rounded),
+                                tooltip: 'Xóa từ khóa',
+                                onPressed: () {
+                                  _searchController.clear();
+                                  _applySearch();
+                                  setState(() {});
+                                },
+                              ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide: BorderSide(
+                            color: scheme.outline.withValues(alpha: 0.4),
+                          ),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide: BorderSide(
+                            color: scheme.outline.withValues(alpha: 0.35),
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide:
+                              BorderSide(color: scheme.primary, width: 1.4),
+                        ),
+                        filled: true,
+                        fillColor: Colors.white,
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 16.w,
+                          vertical: 14.h,
+                        ),
+                      ),
+                      onChanged: (_) => setState(() {}),
+                    ),
+                  ),
+                  SizedBox(width: 10.w),
+                  FilledButton.icon(
+                    onPressed: _applySearch,
+                    icon: const Icon(Icons.tune_rounded),
+                    label: const Text('Lọc'),
+                  ),
+                  SizedBox(width: 8.w),
+                  IconButton.filledTonal(
+                    icon: const Icon(Icons.refresh_rounded),
+                    onPressed: () {
+                      _searchController.clear();
+                      ref.read(productProvider.notifier).refresh();
+                      setState(() {});
+                    },
+                    tooltip: 'Làm mới',
+                  ),
+                ],
+              ),
             SizedBox(height: 14.h),
             categoriesAsync.when(
               data: (categories) {
@@ -277,7 +374,7 @@ class _ProductManagementScreenState
                 );
               },
               loading: () => const SizedBox.shrink(),
-              error: (_, __) => const SizedBox.shrink(),
+              error: (error, stack) => const SizedBox.shrink(),
             ),
           ],
         ),
@@ -285,7 +382,32 @@ class _ProductManagementScreenState
     );
   }
 
-  Widget _buildProductTable(List<Product> products, ColorScheme scheme) {
+  Widget _buildProductList(List<Product> products, ColorScheme scheme) {
+    if (products.isEmpty) {
+      return _EmptyState(onCreate: () => _showProductForm());
+    }
+
+    return ListView.separated(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: products.length,
+      separatorBuilder: (context, index) => SizedBox(height: 12.h),
+      itemBuilder: (context, index) {
+        final product = products[index];
+        return _ProductListTile(
+          product: product,
+          onEdit: () => _showProductForm(product: product),
+          onDelete: () => _deleteProduct(product.id, product.name),
+        );
+      },
+    );
+  }
+
+  Widget _buildProductTable(
+    List<Product> products,
+    ColorScheme scheme, {
+    required bool isCompact,
+  }) {
     if (products.isEmpty) {
       return _EmptyState(onCreate: () => _showProductForm());
     }
@@ -295,10 +417,10 @@ class _ProductManagementScreenState
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: scheme.outline.withOpacity(0.08)),
+        border: Border.all(color: scheme.outline.withValues(alpha: 0.08)),
         boxShadow: [
           BoxShadow(
-            color: scheme.primary.withOpacity(0.06),
+            color: scheme.primary.withValues(alpha: 0.06),
             blurRadius: 24,
             offset: const Offset(0, 16),
           ),
@@ -310,13 +432,13 @@ class _ProductManagementScreenState
           scrollDirection: Axis.horizontal,
           child: SingleChildScrollView(
             child: DataTable(
-              headingRowHeight: 56.h,
-              dataRowMinHeight: 60.h,
-              dataRowMaxHeight: 68.h,
-              horizontalMargin: 20.w,
-              columnSpacing: 28.w,
+              headingRowHeight: isCompact ? 52.h : 56.h,
+              dataRowMinHeight: isCompact ? 56.h : 60.h,
+              dataRowMaxHeight: isCompact ? 64.h : 68.h,
+              horizontalMargin: isCompact ? 16.w : 20.w,
+              columnSpacing: isCompact ? 16.w : 28.w,
               headingRowColor:
-                  WidgetStateProperty.all(scheme.primary.withOpacity(0.06)),
+                  WidgetStateProperty.all(scheme.primary.withValues(alpha: 0.06)),
               columns: [
                 _buildColumnLabel('Mã sản phẩm'),
                 _buildColumnLabel('Tên sản phẩm'),
@@ -386,9 +508,10 @@ class _ProductManagementScreenState
 }
 
 class _ProductHeader extends StatelessWidget {
-  const _ProductHeader({required this.state});
+  const _ProductHeader({required this.state, required this.isCompact});
 
   final ProductState state;
+  final bool isCompact;
 
   @override
   Widget build(BuildContext context) {
@@ -396,10 +519,16 @@ class _ProductHeader extends StatelessWidget {
     final total = state.products.length;
     final active = state.products.where((p) => p.isActive).length;
     final inactive = total - active;
+    final titleStyle = isCompact
+        ? Theme.of(context).textTheme.titleLarge
+        : Theme.of(context).textTheme.headlineSmall;
+    final subtitleStyle = isCompact
+        ? Theme.of(context).textTheme.bodyMedium
+        : Theme.of(context).textTheme.titleMedium;
 
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.all(24.w),
+      padding: EdgeInsets.all(isCompact ? 18.w : 24.w),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
         gradient: const LinearGradient(
@@ -409,7 +538,7 @@ class _ProductHeader extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF0F172A).withOpacity(0.22),
+            color: const Color(0xFF0F172A).withValues(alpha: 0.22),
             blurRadius: 30,
             offset: const Offset(0, 18),
           ),
@@ -428,7 +557,7 @@ class _ProductHeader extends StatelessWidget {
               children: [
                 Text(
                   'Danh mục sản phẩm',
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  style: titleStyle?.copyWith(
                         color: Colors.white,
                         fontWeight: FontWeight.w800,
                       ),
@@ -436,41 +565,76 @@ class _ProductHeader extends StatelessWidget {
                 SizedBox(height: 8.h),
                 Text(
                   'Theo dõi trạng thái kinh doanh, cập nhật nhanh thông tin hàng hóa và giữ dữ liệu luôn đồng bộ.',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: Colors.white.withOpacity(0.92),
+                  style: subtitleStyle?.copyWith(
+                        color: Colors.white.withValues(alpha: 0.92),
                         height: 1.4,
                       ),
                 ),
               ],
             ),
           ),
-          Wrap(
-            spacing: 10.w,
-            runSpacing: 10.h,
-            children: [
-              _HeaderMetric(
-                label: 'Tổng sản phẩm',
-                value: '$total',
-                icon: Icons.inventory_2_rounded,
-                color: Colors.white,
-                foreground: scheme.primary,
+          if (isCompact)
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _HeaderMetric(
+                    label: 'Tổng sản phẩm',
+                    value: '$total',
+                    icon: Icons.inventory_2_rounded,
+                    color: Colors.white,
+                    foreground: scheme.primary,
+                    compact: true,
+                  ),
+                  SizedBox(width: 10.w),
+                  _HeaderMetric(
+                    label: 'Đang hoạt động',
+                    value: '$active',
+                    icon: Icons.check_circle_rounded,
+                    color: const Color(0xFFDCFCE7),
+                    foreground: const Color(0xFF166534),
+                    compact: true,
+                  ),
+                  SizedBox(width: 10.w),
+                  _HeaderMetric(
+                    label: 'Tạm ngưng',
+                    value: '$inactive',
+                    icon: Icons.pause_circle_rounded,
+                    color: const Color(0xFFFFEDD5),
+                    foreground: const Color(0xFF9A3412),
+                    compact: true,
+                  ),
+                ],
               ),
-              _HeaderMetric(
-                label: 'Đang hoạt động',
-                value: '$active',
-                icon: Icons.check_circle_rounded,
-                color: const Color(0xFFDCFCE7),
-                foreground: const Color(0xFF166534),
-              ),
-              _HeaderMetric(
-                label: 'Tạm ngưng',
-                value: '$inactive',
-                icon: Icons.pause_circle_rounded,
-                color: const Color(0xFFFFEDD5),
-                foreground: const Color(0xFF9A3412),
-              ),
-            ],
-          ),
+            )
+          else
+            Wrap(
+              spacing: 10.w,
+              runSpacing: 10.h,
+              children: [
+                _HeaderMetric(
+                  label: 'Tổng sản phẩm',
+                  value: '$total',
+                  icon: Icons.inventory_2_rounded,
+                  color: Colors.white,
+                  foreground: scheme.primary,
+                ),
+                _HeaderMetric(
+                  label: 'Đang hoạt động',
+                  value: '$active',
+                  icon: Icons.check_circle_rounded,
+                  color: const Color(0xFFDCFCE7),
+                  foreground: const Color(0xFF166534),
+                ),
+                _HeaderMetric(
+                  label: 'Tạm ngưng',
+                  value: '$inactive',
+                  icon: Icons.pause_circle_rounded,
+                  color: const Color(0xFFFFEDD5),
+                  foreground: const Color(0xFF9A3412),
+                ),
+              ],
+            ),
         ],
       ),
     );
@@ -484,6 +648,7 @@ class _HeaderMetric extends StatelessWidget {
     required this.icon,
     required this.color,
     required this.foreground,
+    this.compact = false,
   });
 
   final String label;
@@ -491,11 +656,15 @@ class _HeaderMetric extends StatelessWidget {
   final IconData icon;
   final Color color;
   final Color foreground;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 12.w : 16.w,
+        vertical: compact ? 10.h : 12.h,
+      ),
       decoration: BoxDecoration(
         color: color,
         borderRadius: BorderRadius.circular(16),
@@ -504,12 +673,12 @@ class _HeaderMetric extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            padding: EdgeInsets.all(8.w),
+            padding: EdgeInsets.all(compact ? 6.w : 8.w),
             decoration: BoxDecoration(
-              color: foreground.withOpacity(0.12),
+              color: foreground.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(icon, color: foreground, size: 20.sp),
+            child: Icon(icon, color: foreground, size: compact ? 18.sp : 20.sp),
           ),
           SizedBox(width: 10.w),
           Column(
@@ -518,8 +687,9 @@ class _HeaderMetric extends StatelessWidget {
               Text(
                 label,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: foreground.withOpacity(0.9),
+                      color: foreground.withValues(alpha: 0.9),
                       fontWeight: FontWeight.w600,
+                      fontSize: compact ? 12.sp : null,
                     ),
               ),
               Text(
@@ -527,9 +697,244 @@ class _HeaderMetric extends StatelessWidget {
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
                       color: foreground,
                       fontWeight: FontWeight.w800,
+                      fontSize: compact ? 18.sp : null,
                     ),
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProductListTile extends StatelessWidget {
+  const _ProductListTile({
+    required this.product,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  final Product product;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final currencyFormat = NumberFormat.currency(locale: 'vi_VN', symbol: '₫');
+    final costPriceText = product.avgCostPrice != null
+        ? currencyFormat.format(product.avgCostPrice)
+        : 'Chưa có giá';
+    final salePriceText = product.avgCostPrice != null
+        ? currencyFormat.format(
+            product.avgCostPrice! *
+                AppConstants.defaultSalePriceMultiplier,
+          )
+        : 'Chưa có giá';
+    final stockValue = product.currentStock?.toStringAsFixed(0) ?? '0';
+    final stockText = '$stockValue ${product.unit}';
+    final stockColor = product.isOutOfStock
+        ? scheme.error
+        : product.isLowStock
+            ? Colors.orange
+            : Colors.green;
+
+    return Card(
+      elevation: 0,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      child: Padding(
+        padding: EdgeInsets.all(16.w),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    product.name,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                ),
+                _StatusBadge(isActive: product.isActive),
+              ],
+            ),
+            SizedBox(height: 10.h),
+            Row(
+              children: [
+                Expanded(
+                  child: _MetricPill(
+                    label: 'Giá vốn',
+                    value: costPriceText,
+                    icon: Icons.sell_rounded,
+                    color: scheme.tertiary,
+                  ),
+                ),
+                SizedBox(width: 10.w),
+                Expanded(
+                  child: _MetricPill(
+                    label: 'Giá bán',
+                    value: salePriceText,
+                    icon: Icons.local_offer_rounded,
+                    color: scheme.primary,
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 10.h),
+            SizedBox(
+              width: double.infinity,
+              child: _MetricPill(
+                label: 'Tồn kho',
+                value: stockText,
+                icon: Icons.inventory_2_outlined,
+                color: stockColor,
+              ),
+            ),
+            SizedBox(height: 10.h),
+            Wrap(
+              spacing: 8.w,
+              runSpacing: 6.h,
+              children: [
+                _InfoChip(
+                  icon: Icons.qr_code_2_rounded,
+                  label: product.barcode ?? 'Chưa có mã',
+                ),
+                _InfoChip(
+                  icon: Icons.category_rounded,
+                  label: product.categoryName ?? 'Chưa phân loại',
+                ),
+                _InfoChip(
+                  icon: Icons.straighten_rounded,
+                  label: product.unit,
+                ),
+                _InfoChip(
+                  icon: Icons.inventory_2_outlined,
+                  label: 'Tối thiểu ${product.minStockLevel.toInt()}',
+                ),
+              ],
+            ),
+            SizedBox(height: 12.h),
+            Row(
+              children: [
+                TextButton.icon(
+                  onPressed: onEdit,
+                  icon: const Icon(Icons.edit_rounded),
+                  label: const Text('Sửa'),
+                ),
+                const Spacer(),
+                IconButton(
+                  icon: Icon(
+                    Icons.delete_outline_rounded,
+                    color: scheme.error,
+                  ),
+                  onPressed: onDelete,
+                  tooltip: 'Xóa',
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _InfoChip extends StatelessWidget {
+  const _InfoChip({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 6.h),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest.withValues(alpha: 0.4),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: scheme.outlineVariant),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14.sp, color: scheme.onSurfaceVariant),
+          SizedBox(width: 6.w),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w600,
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MetricPill extends StatelessWidget {
+  const _MetricPill({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.color,
+  });
+
+  final String label;
+  final String value;
+  final IconData icon;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: EdgeInsets.all(6.w),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.16),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, size: 16.sp, color: color),
+          ),
+          SizedBox(width: 8.w),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: color,
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
+                SizedBox(height: 2.h),
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurface,
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -551,9 +956,9 @@ class _StatusBadge extends StatelessWidget {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withOpacity(0.24)),
+        border: Border.all(color: color.withValues(alpha: 0.24)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -589,7 +994,7 @@ class _EmptyState extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: scheme.outline.withOpacity(0.08)),
+        border: Border.all(color: scheme.outline.withValues(alpha: 0.08)),
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -597,7 +1002,7 @@ class _EmptyState extends StatelessWidget {
           Container(
             padding: EdgeInsets.all(18.w),
             decoration: BoxDecoration(
-              color: scheme.primary.withOpacity(0.1),
+              color: scheme.primary.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(
