@@ -214,12 +214,12 @@ flutter test integration_test/
 
 ## 🤝 Contributing
 
-Đây là project nội bộ. Liên hệ admin để được cấp quyền.
+Đây là project miễn phí. Không có thâu tiền.
 
 ## 📄 License
 
 Private - All rights reserved
 
 ## 📞 Support
-
-Liên hệ: [Your contact info]
+Email: lecongphu1412@gmail.com
+Liên hệ: https://www.facebook.com/chris.le.1111/
