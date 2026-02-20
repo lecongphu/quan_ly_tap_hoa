@@ -670,22 +670,18 @@ class DebtCustomerCard extends StatelessWidget {
 class _DebtMetric extends StatelessWidget {
   final String label;
   final String value;
-  final bool alignEnd;
   final Color? valueColor;
 
   const _DebtMetric({
     required this.label,
     required this.value,
-    this.alignEnd = false,
     this.valueColor,
   });
 
   @override
   Widget build(BuildContext context) {
     return Column(
-      crossAxisAlignment: alignEnd
-          ? CrossAxisAlignment.end
-          : CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
@@ -1006,7 +1002,7 @@ class _DebtDetailDialogState extends State<DebtDetailDialog> {
                       SizedBox(width: 12.w),
                       Expanded(
                         child: DropdownButtonFormField<int?>(
-                          value: _selectedYear,
+                          initialValue: _selectedYear,
                           isExpanded: true,
                           items: [
                             const DropdownMenuItem<int?>(
@@ -1150,7 +1146,7 @@ class _DebtDetailDialogState extends State<DebtDetailDialog> {
                     scrollDirection: Axis.horizontal,
                     child: SingleChildScrollView(
                       child: DataTable(
-                        headingRowColor: MaterialStateProperty.all(
+                        headingRowColor: WidgetStateProperty.all(
                           scheme.surfaceContainerHighest,
                         ),
                         columnSpacing: 20.w,
@@ -1172,7 +1168,7 @@ class _DebtDetailDialogState extends State<DebtDetailDialog> {
                           final line = entry.value;
                           final canEdit = line.items.isEmpty;
                           return DataRow(
-                            color: MaterialStateProperty.all(
+                            color: WidgetStateProperty.all(
                               index.isEven
                                   ? scheme.surfaceContainerHighest.withValues(
                                       alpha: 0.25,
@@ -1289,7 +1285,7 @@ class _DebtDetailDialogState extends State<DebtDetailDialog> {
               scrollDirection: Axis.horizontal,
               child: SingleChildScrollView(
                 child: DataTable(
-                  headingRowColor: MaterialStateProperty.all(
+                  headingRowColor: WidgetStateProperty.all(
                     scheme.surfaceContainerHighest,
                   ),
                   columnSpacing: 20.w,
@@ -1309,7 +1305,7 @@ class _DebtDetailDialogState extends State<DebtDetailDialog> {
                     final index = entry.key;
                     final sale = entry.value;
                     return DataRow(
-                      color: MaterialStateProperty.all(
+                      color: WidgetStateProperty.all(
                         index.isEven
                             ? scheme.surfaceContainerHighest.withValues(
                                 alpha: 0.25,
@@ -1372,7 +1368,7 @@ class _DebtDetailDialogState extends State<DebtDetailDialog> {
               scrollDirection: Axis.horizontal,
               child: SingleChildScrollView(
                 child: DataTable(
-                  headingRowColor: MaterialStateProperty.all(
+                  headingRowColor: WidgetStateProperty.all(
                     scheme.surfaceContainerHighest,
                   ),
                   columnSpacing: 20.w,
@@ -1390,7 +1386,7 @@ class _DebtDetailDialogState extends State<DebtDetailDialog> {
                     final index = entry.key;
                     final payment = entry.value;
                     return DataRow(
-                      color: MaterialStateProperty.all(
+                      color: WidgetStateProperty.all(
                         index.isEven
                             ? scheme.surfaceContainerHighest.withValues(
                                 alpha: 0.25,
@@ -1771,22 +1767,18 @@ class _DebtPaymentDialogState extends State<DebtPaymentDialog> {
 class _InfoTile extends StatelessWidget {
   final String label;
   final String value;
-  final bool alignEnd;
   final Color? valueColor;
 
   const _InfoTile({
     required this.label,
     required this.value,
-    this.alignEnd = false,
     this.valueColor,
   });
 
   @override
   Widget build(BuildContext context) {
     return Column(
-      crossAxisAlignment: alignEnd
-          ? CrossAxisAlignment.end
-          : CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,

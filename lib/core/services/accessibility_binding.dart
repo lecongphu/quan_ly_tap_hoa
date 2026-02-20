@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
@@ -56,7 +54,12 @@ class _AccessibilityBinaryMessenger extends BinaryMessenger {
     ByteData? data,
     PlatformMessageResponseCallback? callback,
   ) {
-    return _delegate.handlePlatformMessage(channel, data, callback);
+    ServicesBinding.instance.channelBuffers.push(
+      channel,
+      data,
+      callback ?? (_) {},
+    );
+    return Future<void>.value();
   }
 
   ByteData? _fixAccessibilityMessage(ByteData? message) {
