@@ -1,11 +1,25 @@
-﻿export interface Customer {
+export interface Customer {
   id: string;
   name: string;
   phone?: string | null;
   address?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  avatar_image_path?: string | null;
   current_debt?: number;
   is_active?: boolean;
   created_at?: string;
+  updated_at?: string;
+}
+
+export interface CustomerImage {
+  id: string;
+  customer_id: string;
+  image_path: string;
+  note?: string | null;
+  created_by?: string | null;
+  is_active?: boolean;
+  created_at: string;
   updated_at?: string;
 }
 

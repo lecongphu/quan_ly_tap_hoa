@@ -13,6 +13,7 @@ ALTER TABLE products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE inventory_batches ENABLE ROW LEVEL SECURITY;
 ALTER TABLE stock_movements ENABLE ROW LEVEL SECURITY;
 ALTER TABLE customers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE customer_images ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sales ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sale_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE debt_payments ENABLE ROW LEVEL SECURITY;
@@ -161,6 +162,51 @@ CREATE POLICY "Users with debt.view can view customers"
 CREATE POLICY "Users with debt.edit can modify customers"
     ON customers FOR ALL
     USING (has_permission('debt.edit'));
+
+CREATE POLICY "Users with debt.view can view customer images"
+    ON customer_images FOR SELECT
+    USING (has_permission('debt.view') OR has_permission('pos.sell'));
+
+CREATE POLICY "Users with debt.edit can modify customer images"
+    ON customer_images FOR ALL
+    USING (has_permission('debt.edit'))
+    WITH CHECK (has_permission('debt.edit'));
+
+-- ============================================
+-- STORAGE OBJECTS - Customer images bucket
+-- ============================================
+
+CREATE POLICY "Users with debt.view can read customer images bucket"
+    ON storage.objects FOR SELECT
+    USING (
+      bucket_id = 'customer-images'
+      AND (has_permission('debt.view') OR has_permission('pos.sell'))
+    );
+
+CREATE POLICY "Users with debt.edit can upload customer images bucket"
+    ON storage.objects FOR INSERT
+    WITH CHECK (
+      bucket_id = 'customer-images'
+      AND has_permission('debt.edit')
+    );
+
+CREATE POLICY "Users with debt.edit can update customer images bucket"
+    ON storage.objects FOR UPDATE
+    USING (
+      bucket_id = 'customer-images'
+      AND has_permission('debt.edit')
+    )
+    WITH CHECK (
+      bucket_id = 'customer-images'
+      AND has_permission('debt.edit')
+    );
+
+CREATE POLICY "Users with debt.edit can delete customer images bucket"
+    ON storage.objects FOR DELETE
+    USING (
+      bucket_id = 'customer-images'
+      AND has_permission('debt.edit')
+    );
 
 -- ============================================
 -- DEBT PAYMENTS - Based on debt permissions

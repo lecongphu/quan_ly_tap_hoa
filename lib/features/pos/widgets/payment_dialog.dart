@@ -62,16 +62,17 @@ class _PaymentDialogState extends ConsumerState<PaymentDialog> {
   }
 
   void _generateQRCode() {
-    // TODO: Get bank info from settings
-    const bankCode = '970422'; // VCB
-    const accountNumber = '0123456789';
+    final bankCode = AppConstants.vietQRBankCode;
+    final accountNumber = AppConstants.vietQRAccountNumber;
+    final accountName = AppConstants.vietQRAccountName;
     final description =
         'Thanh toan don hang ${DateTime.now().millisecondsSinceEpoch}';
 
     _qrCodeUrl =
         '${AppConstants.vietQRBaseUrl}/$bankCode-$accountNumber-${AppConstants.vietQRTemplate}.jpg'
         '?amount=${_finalAmount.toInt()}'
-        '&addInfo=${Uri.encodeComponent(description)}';
+        '&addInfo=${Uri.encodeComponent(description)}'
+        '&accountName=${Uri.encodeComponent(accountName)}';
   }
 
   Future<void> _pickDueDate() async {
@@ -93,11 +94,16 @@ class _PaymentDialogState extends ConsumerState<PaymentDialog> {
   @override
   Widget build(BuildContext context) {
     final currencyFormat = NumberFormat.currency(locale: 'vi_VN', symbol: '₫');
+    final isMobile = MediaQuery.sizeOf(context).width < 600;
 
     return AlertDialog(
+      insetPadding: EdgeInsets.symmetric(
+        horizontal: isMobile ? 16 : 40,
+        vertical: 24,
+      ),
       title: const Text('Thanh toán'),
       content: SizedBox(
-        width: 500.w,
+        width: isMobile ? double.infinity : 500.w,
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -277,6 +283,29 @@ class _PaymentDialogState extends ConsumerState<PaymentDialog> {
             },
           ),
           SizedBox(height: 8.h),
+          Container(
+            width: double.infinity,
+            padding: EdgeInsets.all(10.w),
+            decoration: BoxDecoration(
+              color: Colors.grey[100],
+              borderRadius: BorderRadius.circular(8.r),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildBankInfoRow('Ngân hàng', AppConstants.vietQRBankCode),
+                _buildBankInfoRow(
+                  'Số tài khoản',
+                  AppConstants.vietQRAccountNumber,
+                ),
+                _buildBankInfoRow(
+                  'Tên tài khoản',
+                  AppConstants.vietQRAccountName,
+                ),
+              ],
+            ),
+          ),
+          SizedBox(height: 8.h),
           TextButton.icon(
             onPressed: () {
               Clipboard.setData(ClipboardData(text: _qrCodeUrl!));
@@ -290,6 +319,24 @@ class _PaymentDialogState extends ConsumerState<PaymentDialog> {
             label: const Text('Copy link QR'),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildBankInfoRow(String label, String value) {
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 2.h),
+      child: RichText(
+        text: TextSpan(
+          style: Theme.of(context).textTheme.bodyMedium,
+          children: [
+            TextSpan(
+              text: '$label: ',
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+            TextSpan(text: value),
+          ],
+        ),
       ),
     );
   }

@@ -21,103 +21,497 @@
 </header>
 
 <main class="page customers-page">
-  <section class="filter-card">
-    <input
-      class="input"
-      type="text"
-      placeholder="Tìm khách hàng..."
-      [(ngModel)]="searchTerm"
-    />
-    <label class="toggle">
-      <input type="checkbox" [(ngModel)]="showOnlyActive" />
-      Chỉ hiển thị đang hoạt động
-    </label>
-  </section>
-
-  <section *ngIf="customers.length" class="summary">
-    <div>
-      <small>Đang hoạt động</small>
-      <strong>{{ activeCount }}</strong>
+  <section class="hero-card card-outline">
+    <div class="hero-copy">
+      <h2>Danh sách khách hàng</h2>
+      <p>Theo dõi trạng thái hoạt động, công nợ và thông tin liên hệ của khách hàng.</p>
     </div>
-    <div>
-      <small>Ngừng hoạt động</small>
-      <strong>{{ inactiveCount }}</strong>
-    </div>
-    <div>
-      <small>Tổng</small>
-      <strong>{{ customers.length }}</strong>
-    </div>
-  </section>
-
-  <section class="customer-list">
-    <div class="customer-card" *ngFor="let customer of filteredCustomers">
-      <div class="header">
-        <div class="avatar" [class.inactive]="customer.is_active === false">
-          <span class="material-icons">person</span>
-        </div>
+    <div class="metric-grid">
+      <article class="metric metric-total">
+        <span class="material-icons">groups</span>
         <div>
-          <h4>{{ customer.name }}</h4>
-          <p *ngIf="customer.phone">{{ customer.phone }}</p>
+          <small>Tổng khách hàng</small>
+          <strong>{{ customers.length }}</strong>
         </div>
-        <span class="badge" [class.inactive]="customer.is_active === false">
-          {{ customer.is_active === false ? 'Ngừng hoạt động' : 'Đang hoạt động' }}
+      </article>
+      <article class="metric metric-active">
+        <span class="material-icons">check_circle</span>
+        <div>
+          <small>Đang hoạt động</small>
+          <strong>{{ activeCount }}</strong>
+        </div>
+      </article>
+      <article class="metric metric-inactive">
+        <span class="material-icons">pause_circle</span>
+        <div>
+          <small>Ngừng hoạt động</small>
+          <strong>{{ inactiveCount }}</strong>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <section class="filter-card card-outline">
+    <div class="search-box">
+      <span class="material-icons">search</span>
+      <input
+        class="input"
+        type="text"
+        placeholder="Tìm khách hàng theo tên hoặc số điện thoại..."
+        [(ngModel)]="searchTerm"
+        (ngModelChange)="onSearchTermChanged()"
+      />
+      <button
+        class="icon-btn"
+        *ngIf="searchTerm"
+        type="button"
+        (click)="searchTerm = ''; onSearchTermChanged()"
+        aria-label="Xóa từ khóa"
+      >
+        <span class="material-icons">close</span>
+      </button>
+    </div>
+
+    <div class="filter-row">
+      <div class="status-chips">
+        <button
+          type="button"
+          class="chip"
+          [class.active]="statusFilter === 'all'"
+          (click)="setStatusFilter('all')"
+        >
+          Tất cả
+        </button>
+        <button
+          type="button"
+          class="chip"
+          [class.active]="statusFilter === 'active'"
+          (click)="setStatusFilter('active')"
+        >
+          Đang hoạt động
+        </button>
+        <button
+          type="button"
+          class="chip"
+          [class.active]="statusFilter === 'inactive'"
+          (click)="setStatusFilter('inactive')"
+        >
+          Ngừng hoạt động
+        </button>
+      </div>
+
+      <button class="btn btn-secondary" *ngIf="hasFilters" type="button" (click)="clearFilters()">
+        Xóa lọc
+      </button>
+    </div>
+  </section>
+
+  <section class="filter-card card-outline">
+    <div class="status-chips">
+      <button
+        type="button"
+        class="chip"
+        [class.active]="activeTab === 'list'"
+        (click)="setActiveTab('list')"
+      >
+        Danh sách
+      </button>
+      <button
+        type="button"
+        class="chip"
+        [class.active]="activeTab === 'map'"
+        (click)="setActiveTab('map')"
+      >
+        Bản đồ
+      </button>
+    </div>
+  </section>
+
+  <section
+    class="overview-map-card card-outline"
+    *ngIf="activeTab === 'map'"
+    [style.position]="isOverviewMapExpanded ? 'fixed' : null"
+    [style.inset]="isOverviewMapExpanded ? '12px' : null"
+    [style.z-index]="isOverviewMapExpanded ? '80' : null"
+    [style.background]="isOverviewMapExpanded ? '#fff' : null"
+    [style.box-shadow]="isOverviewMapExpanded ? '0 24px 64px rgba(15, 23, 42, 0.28)' : null"
+    [style.overflow]="isOverviewMapExpanded ? 'auto' : null"
+  >
+    <div class="overview-map-header">
+      <div>
+        <h3>Bản đồ tổng quát khách hàng</h3>
+        <p>Hiển thị các vị trí khách hàng đã có tọa độ và đồng bộ theo bộ lọc.</p>
+      </div>
+
+      <div class="overview-map-actions">
+        <span class="map-counter">
+          {{ filteredCustomersWithCoordinates.length }}/{{ customersWithCoordinates.length }} vị trí
+        </span>
+        <button
+          class="btn btn-outline"
+          type="button"
+          (click)="refreshOverviewMapManually()"
+          [disabled]="!hasGoogleMapsApiKey"
+        >
+          <span class="material-icons">refresh</span>
+          Cập nhật bản đồ
+        </button>
+        <button
+          class="btn btn-outline"
+          type="button"
+          (click)="toggleOverviewMapExpanded()"
+          [disabled]="!hasGoogleMapsApiKey"
+        >
+          <span class="material-icons">
+            {{ isOverviewMapExpanded ? 'close_fullscreen' : 'open_in_full' }}
+          </span>
+          {{ isOverviewMapExpanded ? 'Thu gọn' : 'Mở rộng' }}
+        </button>
+      </div>
+    </div>
+
+    <div
+      *ngIf="hasGoogleMapsApiKey; else overviewMapKeyMissing"
+      #overviewMapCanvas
+      class="overview-map-canvas"
+      [style.min-height.px]="isOverviewMapExpanded ? 620 : 340"
+    ></div>
+
+    <ng-template #overviewMapKeyMissing>
+      <div class="overview-map-missing">
+        Chưa cấu hình GOOGLE_MAPS_API_KEY để hiển thị bản đồ tổng quát.
+      </div>
+    </ng-template>
+
+    <p class="field-note" *ngIf="!overviewMapError && !filteredCustomersWithCoordinates.length">
+      Không có khách hàng phù hợp bộ lọc hiện tại có tọa độ.
+    </p>
+    <p class="field-note" *ngIf="overviewMapError" style="color: #b91c1c;">
+      {{ overviewMapError }}
+    </p>
+  </section>
+
+  <section
+    class="customer-list"
+    *ngIf="activeTab === 'list' && !isLoading && !errorMessage && filteredCustomers.length; else customerFallback"
+  >
+    <article
+      class="customer-card"
+      *ngFor="let customer of filteredCustomers; trackBy: trackByCustomerId"
+    >
+      <div class="card-head">
+        <div class="identity">
+          <div class="avatar" [class.inactive]="customer.is_active === false">
+            <img *ngIf="customer.avatarUrl; else avatarFallback" [src]="customer.avatarUrl" [alt]="customer.name" />
+            <ng-template #avatarFallback>
+              <span class="material-icons">person</span>
+            </ng-template>
+          </div>
+
+          <div class="identity-text">
+            <h3>{{ customer.name }}</h3>
+            <p *ngIf="customer.phone">{{ customer.phone }}</p>
+          </div>
+        </div>
+
+        <span class="status-badge" [class.inactive]="customer.is_active === false">
+          {{ statusLabel(customer) }}
         </span>
       </div>
-      <div class="info" *ngIf="customer.address">{{ customer.address }}</div>
-      <div class="stats">
-        <div>
-          <small>Nợ hiện tại</small>
-          <strong>{{ formatCurrency(customer.current_debt) }}</strong>
+
+      <div class="info-stack">
+        <div class="info-row" *ngIf="customer.address">
+          <span class="material-icons">location_on</span>
+          <span>{{ customer.address }}</span>
+        </div>
+        <div class="info-row" *ngIf="customer.latitude != null && customer.longitude != null">
+          <span class="material-icons">near_me</span>
+          <span>{{ formatCoordinate(customer.latitude) }}, {{ formatCoordinate(customer.longitude) }}</span>
         </div>
       </div>
+
+      <div class="debt-panel" [class.is-positive]="(customer.current_debt || 0) > 0">
+        <small>Nợ hiện tại</small>
+        <strong>{{ formatCurrency(customer.current_debt) }}</strong>
+      </div>
+
       <div class="card-actions">
-        <button class="btn btn-outline" (click)="openForm(customer)">
+        <button class="btn btn-outline" type="button" (click)="openForm(customer)">
           <span class="material-icons">edit</span>
           Chỉnh sửa
         </button>
-        <button class="btn btn-outline" (click)="deleteCustomer(customer)">
-          <span class="material-icons">delete</span>
-          Xóa
+        <button
+          class="btn btn-outline"
+          type="button"
+          *ngIf="hasGoogleMapsApiKey && customer.latitude != null && customer.longitude != null"
+          (click)="focusCustomerOnOverviewMap(customer)"
+        >
+          <span class="material-icons">my_location</span>
+          Vi tri
+        </button>
+        <button class="btn btn-outline" type="button" (click)="openImageManager(customer)">
+          <span class="material-icons">photo_library</span>
+          Ảnh
+        </button>
+        <button class="btn btn-outline btn-danger-outline" type="button" (click)="deleteCustomer(customer)">
+          <span class="material-icons">visibility_off</span>
+          Ẩn
         </button>
       </div>
-    </div>
-
-    <div class="empty-state" *ngIf="!filteredCustomers.length">
-      <span class="material-icons">person_off</span>
-      <p>Không tìm thấy khách hàng.</p>
-    </div>
+    </article>
   </section>
+
+  <ng-template #customerFallback>
+    <ng-container *ngIf="activeTab === 'list'">
+    <section class="state-card" *ngIf="isLoading">
+      <div class="spinner" aria-hidden="true"></div>
+      <h3>Đang tải dữ liệu khách hàng...</h3>
+    </section>
+
+    <section class="state-card error" *ngIf="!isLoading && errorMessage">
+      <span class="material-icons">error_outline</span>
+      <h3>Đã xảy ra lỗi</h3>
+      <p>{{ errorMessage }}</p>
+      <button class="btn btn-secondary" type="button" (click)="loadCustomers()">Thử lại</button>
+    </section>
+
+    <section class="state-card empty" *ngIf="!isLoading && !errorMessage">
+      <span class="material-icons">person_search</span>
+      <h3>{{ customers.length ? 'Không có khách hàng phù hợp bộ lọc' : 'Chưa có khách hàng' }}</h3>
+      <p>
+        {{
+          customers.length
+            ? 'Thử đổi từ khóa hoặc trạng thái lọc để xem kết quả khác.'
+            : 'Bấm "Thêm khách hàng" để tạo dữ liệu đầu tiên.'
+        }}
+      </p>
+    </section>
+    </ng-container>
+  </ng-template>
 </main>
 
 <div class="overlay" *ngIf="showForm">
   <div class="dialog">
     <div class="dialog-header">
       <h3>{{ editingCustomer ? 'Chỉnh sửa khách hàng' : 'Thêm khách hàng' }}</h3>
-      <button class="icon-btn" (click)="closeForm()">
+      <button class="icon-btn" (click)="closeForm()" aria-label="Đóng">
         <span class="material-icons">close</span>
       </button>
     </div>
+
     <div class="dialog-body">
-      <label>
-        Tên khách hàng
-        <input class="input" [(ngModel)]="customerForm.name" />
+      <label class="field">
+        <span>Tên khách hàng</span>
+        <input class="input" [(ngModel)]="customerForm.name" placeholder="Nhập tên khách hàng" />
       </label>
-      <label>
-        Số điện thoại
-        <input class="input" [(ngModel)]="customerForm.phone" />
+
+      <label class="field">
+        <span>Số điện thoại</span>
+        <input class="input" [(ngModel)]="customerForm.phone" placeholder="Ví dụ: 09xxxxxxxx" />
       </label>
-      <label>
-        Địa chỉ
-        <input class="input" [(ngModel)]="customerForm.address" />
+
+      <label class="field">
+        <span>Địa chỉ</span>
+        <input class="input" [(ngModel)]="customerForm.address" placeholder="Nhập địa chỉ khách hàng" />
       </label>
-      <label class="toggle">
+
+      <div class="field-grid">
+        <label class="field">
+          <span>Vĩ độ (latitude)</span>
+          <input class="input" [(ngModel)]="customerForm.latitude" placeholder="Ví dụ: 10.121973" />
+        </label>
+
+        <label class="field">
+          <span>Kinh độ (longitude)</span>
+          <input class="input" [(ngModel)]="customerForm.longitude" placeholder="Ví dụ: 105.279663" />
+        </label>
+      </div>
+
+      <label class="field">
+        <span>Google Map</span>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <input
+            class="input"
+            style="flex: 1 1 340px;"
+            [(ngModel)]="mapsLinkInput"
+            placeholder="Dán link Google Maps hoặc maps.app.goo.gl"
+          />
+          <button
+            class="btn btn-outline"
+            type="button"
+            (click)="parseGoogleMapsLink()"
+            [disabled]="isResolvingMapLink"
+          >
+            {{ isResolvingMapLink ? 'Đang phân tích...' : 'Phân tích link' }}
+          </button>
+        </div>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <button class="btn btn-outline" type="button" (click)="syncMapFromInputs()">
+            Cập nhật bản đồ
+          </button>
+          <button class="btn btn-outline" type="button" (click)="syncInputsFromMap()">
+            Lấy vị trí từ bản đồ
+          </button>
+          <button class="btn btn-outline" type="button" (click)="openGoogleMapsExternal()">
+            Mở Google Map
+          </button>
+        </div>
+        <div
+          *ngIf="hasGoogleMapsApiKey; else mapKeyMissing"
+          #googleMapCanvas
+          style="height: 280px; border: 1px solid var(--outline); border-radius: 12px;"
+        ></div>
+        <ng-template #mapKeyMissing>
+          <div
+            style="
+              border: 1px dashed var(--outline);
+              border-radius: 12px;
+              padding: 10px 12px;
+              color: var(--text-muted);
+            "
+          >
+            Chưa cấu hình GOOGLE_MAPS_API_KEY. Dùng nút "Mở Google Map" để lấy tọa độ.
+          </div>
+        </ng-template>
+      </label>
+
+      <p class="field-note">Để trống nếu chưa có vị trí. Nếu nhập, cần đủ cả vĩ độ và kinh độ.</p>
+      <p class="field-note" *ngIf="!googleMapError">
+        Bấm lên bản đồ hoặc kéo ghim để cập nhật kinh độ/vĩ độ.
+      </p>
+      <p class="field-note" *ngIf="googleMapError" style="color: #b91c1c;">
+        {{ googleMapError }}
+      </p>
+
+      <label class="toggle-row">
         <input type="checkbox" [(ngModel)]="customerForm.is_active" />
-        Đang hoạt động
+        <span>Đang hoạt động</span>
       </label>
     </div>
+
     <div class="dialog-actions">
       <button class="btn btn-outline" (click)="closeForm()">Hủy</button>
       <button class="btn btn-primary" (click)="saveCustomer()">Lưu</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" *ngIf="showImageManager">
+  <div class="dialog image-dialog">
+    <div class="dialog-header">
+      <h3>Ảnh khách hàng - {{ imageManagerCustomer?.name }}</h3>
+      <button class="icon-btn" type="button" (click)="closeImageManager()" aria-label="Đóng">
+        <span class="material-icons">close</span>
+      </button>
+    </div>
+
+    <div class="dialog-body">
+      <div class="image-toolbar">
+        <input
+          #customerImageInput
+          type="file"
+          accept="image/*"
+          multiple
+          (change)="onImageFilesSelected($event)"
+          hidden
+        />
+
+        <button
+          class="btn btn-outline"
+          type="button"
+          (click)="customerImageInput.click()"
+          [disabled]="isUploadingImages || isImageLimitReached"
+        >
+          <span class="material-icons">{{ isUploadingImages ? 'hourglass_top' : 'add_photo_alternate' }}</span>
+          {{ isUploadingImages ? 'Đang tải...' : 'Thêm ảnh' }}
+        </button>
+
+        <span class="image-counter">{{ customerImages.length }}/{{ maxCustomerImages }} ảnh</span>
+
+        <div class="image-toolbar-actions">
+          <button
+            class="btn btn-outline"
+            type="button"
+            (click)="openAvatarPreview()"
+            [disabled]="!imageManagerCustomer?.avatar_image_path"
+          >
+            <span class="material-icons">visibility</span>
+            Xem avatar
+          </button>
+          <button
+            class="btn btn-outline"
+            type="button"
+            (click)="clearCustomerAvatar()"
+            [disabled]="isUpdatingAvatar || !imageManagerCustomer?.avatar_image_path"
+          >
+            <span class="material-icons">person_remove</span>
+            Gỡ avatar
+          </button>
+        </div>
+      </div>
+
+      <p class="field-note">
+        {{
+          isImageLimitReached
+            ? 'Đã đạt giới hạn ảnh cho khách hàng này.'
+            : 'Còn trống ' + remainingImageSlots + ' vị trí ảnh.'
+        }}
+      </p>
+      <p class="field-note image-avatar-state">
+        {{ imageManagerCustomer?.avatar_image_path ? 'Đã đặt avatar.' : 'Chưa đặt avatar.' }}
+      </p>
+
+      <section class="state-card" *ngIf="isLoadingImages">
+        <div class="spinner" aria-hidden="true"></div>
+        <h3>Đang tải danh sách ảnh...</h3>
+      </section>
+
+      <section class="state-card error" *ngIf="!isLoadingImages && imageManagerError">
+        <span class="material-icons">error_outline</span>
+        <h3>Không thể tải ảnh</h3>
+        <p>{{ imageManagerError }}</p>
+        <button class="btn btn-secondary" type="button" (click)="loadCustomerImages()">Thử lại</button>
+      </section>
+
+      <section class="state-card empty" *ngIf="!isLoadingImages && !imageManagerError && !customerImages.length">
+        <span class="material-icons">photo_library</span>
+        <h3>Chưa có ảnh</h3>
+        <p>Bấm "Thêm ảnh" để tải ảnh khách hàng.</p>
+      </section>
+
+      <div class="image-grid" *ngIf="!isLoadingImages && !imageManagerError && customerImages.length">
+        <article class="image-card" *ngFor="let image of customerImages; trackBy: trackByCustomerImageId">
+          <button class="image-preview-btn" type="button" (click)="openImagePreview(image)">
+            <img [src]="customerImageUrl(image)" alt="Ảnh khách hàng" loading="lazy" />
+            <span class="image-avatar-chip" *ngIf="isAvatarImage(image)">Avatar</span>
+          </button>
+
+          <div class="image-meta">
+            <span class="material-icons">schedule</span>
+            <span>{{ image.created_at | date: 'dd/MM/yyyy HH:mm' }}</span>
+          </div>
+
+          <div class="image-actions">
+            <button
+              class="btn btn-outline"
+              type="button"
+              (click)="setImageAsAvatar(image)"
+              [disabled]="isAvatarImage(image) || isUpdatingAvatar"
+            >
+              <span class="material-icons">{{ isAvatarImage(image) ? 'star' : 'star_outline' }}</span>
+              {{ isAvatarImage(image) ? 'Avatar' : 'Đặt avatar' }}
+            </button>
+            <button class="btn btn-outline btn-danger-outline" type="button" (click)="deleteCustomerImage(image)">
+              <span class="material-icons">delete_outline</span>
+              Xóa
+            </button>
+          </div>
+        </article>
+      </div>
+    </div>
+
+    <div class="dialog-actions">
+      <button class="btn btn-outline" type="button" (click)="closeImageManager()">Đóng</button>
     </div>
   </div>
 </div>

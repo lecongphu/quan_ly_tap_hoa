@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart';
-import '../../../core/constants/app_constants.dart';
 import '../../inventory/models/product_model.dart';
 import '../../inventory/providers/inventory_provider.dart';
 import '../providers/product_provider.dart';
@@ -68,6 +67,8 @@ class _ProductManagementScreenState
     if (confirmed == true) {
       try {
         await ref.read(productProvider.notifier).deleteProduct(productId);
+        ref.invalidate(productsProvider);
+        ref.invalidate(categoriesProvider);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -124,8 +125,11 @@ class _ProductManagementScreenState
         child: LayoutBuilder(
           builder: (context, constraints) {
             final isCompact = constraints.maxWidth < 900;
-            final horizontalPadding =
-                constraints.maxWidth > 1400 ? 72.w : isMobile ? 16.w : 28.w;
+            final horizontalPadding = constraints.maxWidth > 1400
+                ? 72.w
+                : isMobile
+                ? 16.w
+                : 28.w;
 
             return RefreshIndicator(
               onRefresh: () async {
@@ -223,17 +227,22 @@ class _ProductManagementScreenState
                             ),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(16),
-                        borderSide:
-                            BorderSide(color: scheme.outline.withValues(alpha: 0.4)),
+                        borderSide: BorderSide(
+                          color: scheme.outline.withValues(alpha: 0.4),
+                        ),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(16),
-                        borderSide:
-                            BorderSide(color: scheme.outline.withValues(alpha: 0.35)),
+                        borderSide: BorderSide(
+                          color: scheme.outline.withValues(alpha: 0.35),
+                        ),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(16),
-                        borderSide: BorderSide(color: scheme.primary, width: 1.4),
+                        borderSide: BorderSide(
+                          color: scheme.primary,
+                          width: 1.4,
+                        ),
                       ),
                       filled: true,
                       fillColor: Colors.white,
@@ -304,8 +313,10 @@ class _ProductManagementScreenState
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(16),
-                          borderSide:
-                              BorderSide(color: scheme.primary, width: 1.4),
+                          borderSide: BorderSide(
+                            color: scheme.primary,
+                            width: 1.4,
+                          ),
                         ),
                         filled: true,
                         fillColor: Colors.white,
@@ -412,6 +423,8 @@ class _ProductManagementScreenState
       return _EmptyState(onCreate: () => _showProductForm());
     }
 
+    final currencyFormat = NumberFormat.currency(locale: 'vi_VN', symbol: '₫');
+
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
@@ -437,18 +450,23 @@ class _ProductManagementScreenState
               dataRowMaxHeight: isCompact ? 64.h : 68.h,
               horizontalMargin: isCompact ? 16.w : 20.w,
               columnSpacing: isCompact ? 16.w : 28.w,
-              headingRowColor:
-                  WidgetStateProperty.all(scheme.primary.withValues(alpha: 0.06)),
+              headingRowColor: WidgetStateProperty.all(
+                scheme.primary.withValues(alpha: 0.06),
+              ),
               columns: [
                 _buildColumnLabel('Mã sản phẩm'),
                 _buildColumnLabel('Tên sản phẩm'),
                 _buildColumnLabel('Danh mục'),
                 _buildColumnLabel('Đơn vị'),
+                _buildColumnLabel('Giá bán'),
                 _buildColumnLabel('Tồn tối thiểu'),
                 _buildColumnLabel('Trạng thái'),
                 _buildColumnLabel('Thao tác'),
               ],
               rows: products.map<DataRow>((product) {
+                final salePriceText = product.salePrice != null
+                    ? currencyFormat.format(product.salePrice)
+                    : 'Chưa có giá';
                 return DataRow(
                   cells: [
                     DataCell(Text(product.barcode ?? '-')),
@@ -460,6 +478,7 @@ class _ProductManagementScreenState
                     ),
                     DataCell(Text(product.categoryName ?? '-')),
                     DataCell(Text(product.unit)),
+                    DataCell(Text(salePriceText)),
                     DataCell(Text(product.minStockLevel.toInt().toString())),
                     DataCell(_StatusBadge(isActive: product.isActive)),
                     DataCell(
@@ -478,7 +497,8 @@ class _ProductManagementScreenState
                               size: 22,
                               color: scheme.error,
                             ),
-                            onPressed: () => _deleteProduct(product.id, product.name),
+                            onPressed: () =>
+                                _deleteProduct(product.id, product.name),
                             tooltip: 'Xóa',
                           ),
                         ],
@@ -498,10 +518,7 @@ class _ProductManagementScreenState
     return DataColumn(
       label: Text(
         label,
-        style: TextStyle(
-          fontWeight: FontWeight.w700,
-          fontSize: 14.sp,
-        ),
+        style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14.sp),
       ),
     );
   }
@@ -558,17 +575,17 @@ class _ProductHeader extends StatelessWidget {
                 Text(
                   'Danh mục sản phẩm',
                   style: titleStyle?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w800,
-                      ),
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
                 SizedBox(height: 8.h),
                 Text(
                   'Theo dõi trạng thái kinh doanh, cập nhật nhanh thông tin hàng hóa và giữ dữ liệu luôn đồng bộ.',
                   style: subtitleStyle?.copyWith(
-                        color: Colors.white.withValues(alpha: 0.92),
-                        height: 1.4,
-                      ),
+                    color: Colors.white.withValues(alpha: 0.92),
+                    height: 1.4,
+                  ),
                 ),
               ],
             ),
@@ -687,18 +704,18 @@ class _HeaderMetric extends StatelessWidget {
               Text(
                 label,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: foreground.withValues(alpha: 0.9),
-                      fontWeight: FontWeight.w600,
-                      fontSize: compact ? 12.sp : null,
-                    ),
+                  color: foreground.withValues(alpha: 0.9),
+                  fontWeight: FontWeight.w600,
+                  fontSize: compact ? 12.sp : null,
+                ),
               ),
               Text(
                 value,
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: foreground,
-                      fontWeight: FontWeight.w800,
-                      fontSize: compact ? 18.sp : null,
-                    ),
+                  color: foreground,
+                  fontWeight: FontWeight.w800,
+                  fontSize: compact ? 18.sp : null,
+                ),
               ),
             ],
           ),
@@ -726,19 +743,16 @@ class _ProductListTile extends StatelessWidget {
     final costPriceText = product.avgCostPrice != null
         ? currencyFormat.format(product.avgCostPrice)
         : 'Chưa có giá';
-    final salePriceText = product.avgCostPrice != null
-        ? currencyFormat.format(
-            product.avgCostPrice! *
-                AppConstants.defaultSalePriceMultiplier,
-          )
+    final salePriceText = product.salePrice != null
+        ? currencyFormat.format(product.salePrice)
         : 'Chưa có giá';
     final stockValue = product.currentStock?.toStringAsFixed(0) ?? '0';
     final stockText = '$stockValue ${product.unit}';
     final stockColor = product.isOutOfStock
         ? scheme.error
         : product.isLowStock
-            ? Colors.orange
-            : Colors.green;
+        ? Colors.orange
+        : Colors.green;
 
     return Card(
       elevation: 0,
@@ -757,8 +771,8 @@ class _ProductListTile extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
                 _StatusBadge(isActive: product.isActive),
@@ -809,10 +823,7 @@ class _ProductListTile extends StatelessWidget {
                   icon: Icons.category_rounded,
                   label: product.categoryName ?? 'Chưa phân loại',
                 ),
-                _InfoChip(
-                  icon: Icons.straighten_rounded,
-                  label: product.unit,
-                ),
+                _InfoChip(icon: Icons.straighten_rounded, label: product.unit),
                 _InfoChip(
                   icon: Icons.inventory_2_outlined,
                   label: 'Tối thiểu ${product.minStockLevel.toInt()}',
@@ -829,10 +840,7 @@ class _ProductListTile extends StatelessWidget {
                 ),
                 const Spacer(),
                 IconButton(
-                  icon: Icon(
-                    Icons.delete_outline_rounded,
-                    color: scheme.error,
-                  ),
+                  icon: Icon(Icons.delete_outline_rounded, color: scheme.error),
                   onPressed: onDelete,
                   tooltip: 'Xóa',
                 ),
@@ -869,9 +877,9 @@ class _InfoChip extends StatelessWidget {
           Text(
             label,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w600,
-                ),
+              color: scheme.onSurfaceVariant,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ],
       ),
@@ -919,9 +927,9 @@ class _MetricPill extends StatelessWidget {
                 Text(
                   label,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: color,
-                        fontWeight: FontWeight.w600,
-                      ),
+                    color: color,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 SizedBox(height: 2.h),
                 Text(
@@ -929,9 +937,9 @@ class _MetricPill extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurface,
-                        fontWeight: FontWeight.w700,
-                      ),
+                    color: Theme.of(context).colorScheme.onSurface,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ],
             ),
@@ -1014,18 +1022,18 @@ class _EmptyState extends StatelessWidget {
           SizedBox(height: 16.h),
           Text(
             'Chưa có sản phẩm nào',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
           ),
           SizedBox(height: 6.h),
           Text(
             'Hãy thêm sản phẩm đầu tiên để bắt đầu quản lý kho và bán hàng hiệu quả hơn.',
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                  height: 1.45,
-                ),
+              color: scheme.onSurfaceVariant,
+              height: 1.45,
+            ),
           ),
           SizedBox(height: 18.h),
           FilledButton.icon(

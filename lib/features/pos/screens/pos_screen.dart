@@ -1,7 +1,10 @@
+import 'package:flutter/foundation.dart'
+    show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 import '../providers/cart_provider.dart';
 import '../../inventory/providers/inventory_provider.dart';
 import '../../inventory/models/product_model.dart';
@@ -19,16 +22,7 @@ class POSScreen extends ConsumerStatefulWidget {
 }
 
 class _POSScreenState extends ConsumerState<POSScreen> {
-  final _searchController = TextEditingController();
-  final _currencyFormat = NumberFormat.currency(locale: 'vi_VN', symbol: '₫');
-  String _selectedStockStatus = 'all';
-  String? _selectedCategoryId;
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
+  final _currencyFormat = NumberFormat.currency(locale: 'vi_VN', symbol: 'đ');
 
   Future<void> _handleCheckout() async {
     final cartState = ref.read(cartProvider);
@@ -83,523 +77,393 @@ class _POSScreenState extends ConsumerState<POSScreen> {
     );
   }
 
-  void _openCartSheet() {
-    showModalBottomSheet<void>(
+  bool get _supportsBarcodeScanner {
+    if (kIsWeb) return false;
+    return defaultTargetPlatform == TargetPlatform.android ||
+        defaultTargetPlatform == TargetPlatform.iOS;
+  }
+
+  String _normalizeBarcode(String barcode) {
+    return barcode.replaceAll(RegExp(r'\s+'), '').trim();
+  }
+
+  Product? _findProductByBarcode(List<Product> products, String barcode) {
+    if (barcode.isEmpty) return null;
+    final normalized = _normalizeBarcode(barcode);
+    for (final product in products) {
+      final existing = _normalizeBarcode(product.barcode ?? '');
+      if (existing.isNotEmpty && existing == normalized) {
+        return product;
+      }
+    }
+    return null;
+  }
+
+  bool _addProductToCart(Product product) {
+    final salePrice = product.salePrice ?? 0;
+    if (salePrice <= 0) {
+      _showMessage(
+        'Sản phẩm "${product.name}" chưa có giá bán. Vui lòng cập nhật trong mục Sản phẩm.',
+        isError: true,
+      );
+      return false;
+    }
+
+    ref.read(cartProvider.notifier).addProduct(product, unitPrice: salePrice);
+    return true;
+  }
+
+  Future<void> _scanBarcodeAndAddProduct(List<Product> products) async {
+    if (!_supportsBarcodeScanner) {
+      _showMessage('Thiết bị này không hỗ trợ quét mã vạch.', isError: true);
+      return;
+    }
+
+    final scannedValue = await showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        final height = MediaQuery.sizeOf(context).height;
-        return Consumer(
-          builder: (context, ref, _) {
-            final cartState = ref.watch(cartProvider);
-            return SafeArea(
-              top: false,
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(12.w, 12.h, 12.w, 16.h),
-                child: SizedBox(
-                  height: height * 0.85,
-                  child: _CartSection(
-                    cartState: cartState,
-                    currencyFormat: _currencyFormat,
-                    onCheckout: _handleCheckout,
-                  ),
-                ),
-              ),
-            );
-          },
-        );
-      },
+      useSafeArea: true,
+      builder: (context) => const _POSBarcodeScannerSheet(),
     );
+
+    if (!mounted || scannedValue == null) return;
+
+    final normalized = _normalizeBarcode(scannedValue);
+    if (normalized.isEmpty) {
+      _showMessage('Mã vạch không hợp lệ.', isError: true);
+      return;
+    }
+
+    final matchedProduct = _findProductByBarcode(products, normalized);
+    if (matchedProduct == null) {
+      _showMessage(
+        'Không tìm thấy sản phẩm cho mã vạch $normalized.',
+        isError: true,
+      );
+      return;
+    }
+
+    if (_addProductToCart(matchedProduct)) {
+      _showMessage('Đã thêm "${matchedProduct.name}" vào giỏ hàng.');
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final cartState = ref.watch(cartProvider);
     final productsAsync = ref.watch(productsProvider);
-    final categoriesAsync = ref.watch(categoriesProvider);
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final shortestSide = MediaQuery.sizeOf(context).shortestSide;
-        final isTablet = shortestSide >= 600;
-        final isPhone = !isTablet;
+    Future<void> handleSearchAction() async {
+      final products = productsAsync.valueOrNull;
+      if (products == null) {
+        _showMessage(
+          'Danh sách sản phẩm đang tải. Vui lòng thử lại.',
+          isError: true,
+        );
+        return;
+      }
+      if (products.isEmpty) {
+        _showMessage('Chưa có sản phẩm để tìm kiếm.', isError: true);
+        return;
+      }
 
-        return Scaffold(
-          appBar: AppBar(
-            title: const Text('Bán hàng'),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.receipt_long),
-                tooltip: 'Danh sách hóa đơn',
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const InvoiceListScreen(),
-                    ),
-                  );
-                },
-              ),
-            ],
+      final selectedProduct = await showSearch<Product?>(
+        context: context,
+        delegate: _POSProductSearchDelegate(
+          products: products,
+          currencyFormat: _currencyFormat,
+        ),
+      );
+
+      if (!mounted || selectedProduct == null) return;
+      if (_addProductToCart(selectedProduct)) {
+        _showMessage('Đã thêm "${selectedProduct.name}" vào giỏ hàng.');
+      }
+    }
+
+    Future<void> handleScanAction() async {
+      final products = productsAsync.valueOrNull;
+      if (products == null) {
+        _showMessage(
+          'Danh sách sản phẩm đang tải. Vui lòng thử lại.',
+          isError: true,
+        );
+        return;
+      }
+      await _scanBarcodeAndAddProduct(products);
+    }
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Bán hàng'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.search_rounded),
+            tooltip: 'Tìm sản phẩm',
+            onPressed: handleSearchAction,
           ),
-          bottomNavigationBar: isPhone
-              ? _MobileCartBar(
-                  cartState: cartState,
-                  currencyFormat: _currencyFormat,
-                  onOpenCart: _openCartSheet,
-                  onCheckout: _handleCheckout,
-                )
-              : null,
-          body: productsAsync.when(
-        data: (products) {
-          final query = _searchController.text.trim().toLowerCase();
-          bool matchesQuery(Product product) =>
-              query.isEmpty ||
-              product.name.toLowerCase().contains(query) ||
-              (product.barcode?.toLowerCase().contains(query) ?? false);
-          bool matchesStockStatus(Product product) {
-            switch (_selectedStockStatus) {
-              case 'in_stock':
-                return !product.isOutOfStock;
-              case 'low_stock':
-                return product.isLowStock;
-              case 'out_of_stock':
-                return product.isOutOfStock;
-              default:
-                return true;
-            }
-          }
-          bool matchesCategory(Product product) =>
-              _selectedCategoryId == null ||
-              product.categoryId == _selectedCategoryId;
-          final filteredProducts = products
-              .where(
-                (product) =>
-                    matchesQuery(product) &&
-                    matchesStockStatus(product) &&
-                    matchesCategory(product),
-              )
-              .toList();
-          final hasActiveFilters =
-              _selectedStockStatus != 'all' || _selectedCategoryId != null;
-          final categories =
-              categoriesAsync.asData?.value ?? const <Category>[];
-          final inStockCount = products
-              .where((product) => !product.isOutOfStock)
-              .length;
-          final lowStockCount = products
-              .where((product) => product.isLowStock)
-              .length;
-          final outOfStockCount = products
-              .where((product) => product.isOutOfStock)
-              .length;
-
-          return LayoutBuilder(
-            builder: (context, constraints) {
-              final size = MediaQuery.sizeOf(context);
-              final shortestSide = size.shortestSide;
-              final isTablet = shortestSide >= 600;
-              final isLargeTablet = shortestSide >= 840;
-              final isSmallTablet = isTablet && !isLargeTablet;
-              final isPhone = !isTablet;
-              final isWideLayout = constraints.maxWidth >= 900;
-              final useSplitView = isTablet && isWideLayout;
-              final cartWidth = useSplitView
-                  ? (isLargeTablet ? 420.0 : 360.0)
-                  : constraints.maxWidth;
-              final productAreaWidth = useSplitView
-                  ? (constraints.maxWidth - cartWidth - 16.w)
-                      .clamp(320.0, constraints.maxWidth)
-                  : constraints.maxWidth;
-
-              final gridMinWidth = isLargeTablet
-                  ? 200.0
-                  : isSmallTablet
-                  ? 170.0
-                  : isPhone
-                  ? 150.0
-                  : 170.0;
-              final gridMaxCount = isLargeTablet ? 6 : useSplitView ? 5 : 4;
-              final gridCount =
-                  (productAreaWidth / gridMinWidth).floor().clamp(2, gridMaxCount);
-              final gridAspectRatio = isLargeTablet
-                  ? 0.9
-                  : isSmallTablet
-                  ? 0.84
-                  : isPhone
-                  ? 0.78
-                  : 0.82;
-
-              final filterChips = <Widget>[
-                _POSFilterChip(
-                  label: 'Tất cả',
-                  selected: _selectedStockStatus == 'all',
-                  onSelected: () {
-                    setState(() {
-                      _selectedStockStatus = 'all';
-                    });
-                  },
+          if (_supportsBarcodeScanner)
+            IconButton(
+              icon: const Icon(Icons.qr_code_scanner_rounded),
+              tooltip: 'Quét mã vạch',
+              onPressed: handleScanAction,
+            ),
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Tải lại dữ liệu sản phẩm',
+            onPressed: () {
+              ref.invalidate(productsProvider);
+              ref.invalidate(categoriesProvider);
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.receipt_long),
+            tooltip: 'Danh sách hóa đơn',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const InvoiceListScreen(),
                 ),
-                _POSFilterChip(
-                  label: 'Còn hàng',
-                  selected: _selectedStockStatus == 'in_stock',
-                  onSelected: () {
-                    setState(() {
-                      _selectedStockStatus = 'in_stock';
-                    });
-                  },
-                ),
-                _POSFilterChip(
-                  label: 'Sắp hết',
-                  selected: _selectedStockStatus == 'low_stock',
-                  onSelected: () {
-                    setState(() {
-                      _selectedStockStatus = 'low_stock';
-                    });
-                  },
-                ),
-                _POSFilterChip(
-                  label: 'Hết hàng',
-                  selected: _selectedStockStatus == 'out_of_stock',
-                  onSelected: () {
-                    setState(() {
-                      _selectedStockStatus = 'out_of_stock';
-                    });
-                  },
-                ),
-              ];
-
-              final categoryDropdown = SizedBox(
-                width: useSplitView ? 240.w : constraints.maxWidth,
-                child: categoriesAsync.when(
-                  data: (_) {
-                    return DropdownButtonFormField<String?>(
-                      initialValue: _selectedCategoryId,
-                      isExpanded: true,
-                      decoration: InputDecoration(
-                        labelText: 'Danh mục',
-                        filled: true,
-                        fillColor: Theme.of(context)
-                            .colorScheme
-                            .surfaceContainerHighest
-                            .withValues(alpha: 0.3),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12.r),
-                          borderSide: BorderSide.none,
-                        ),
-                      ),
-                      items: [
-                        const DropdownMenuItem<String?>(
-                          value: null,
-                          child: Text('Tất cả danh mục'),
-                        ),
-                        ...categories.map(
-                          (category) => DropdownMenuItem<String?>(
-                            value: category.id,
-                            child: Text(category.name),
-                          ),
-                        ),
-                      ],
-                      onChanged: (value) {
-                        setState(() {
-                          _selectedCategoryId = value;
-                        });
-                      },
-                    );
-                  },
-                  loading: () => const LinearProgressIndicator(),
-                  error: (error, stack) => Text(
-                    'Lỗi tải danh mục',
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.error,
-                      fontSize: 12.sp,
-                    ),
-                  ),
-                ),
-              );
-
-              final productSection = Column(
-                children: [
-                  Padding(
-                    padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 8.h),
-                    child: Container(
-                      padding: EdgeInsets.all(12.w),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context)
-                            .colorScheme
-                            .surfaceContainerHighest
-                            .withValues(alpha: 0.25),
-                        borderRadius: BorderRadius.circular(16.r),
-                        border: Border.all(
-                          color: Theme.of(context).colorScheme.outlineVariant,
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              controller: _searchController,
-                              decoration: InputDecoration(
-                                hintText: 'Tìm nhanh (tên hoặc mã vạch)...',
-                                prefixIcon: const Icon(Icons.search),
-                                filled: true,
-                                fillColor: Theme.of(
-                                  context,
-                                ).colorScheme.surface.withValues(alpha: 0.9),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(14.r),
-                                  borderSide: BorderSide.none,
-                                ),
-                                suffixIcon: _searchController.text.isNotEmpty
-                                    ? IconButton(
-                                        icon: const Icon(Icons.clear),
-                                        onPressed: () {
-                                          _searchController.clear();
-                                          setState(() {});
-                                        },
-                                      )
-                                    : null,
-                              ),
-                              onChanged: (_) => setState(() {}),
-                            ),
-                          ),
-                          SizedBox(width: 12.w),
-                          Tooltip(
-                            message: 'Tải lại danh sách sản phẩm',
-                            child: IconButton.filledTonal(
-                              icon: const Icon(Icons.refresh),
-                              onPressed: () {
-                                ref.invalidate(productsProvider);
-                                ref.invalidate(categoriesProvider);
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  Padding(
-                    padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 8.h),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.filter_alt,
-                              size: 16.sp,
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.onSurfaceVariant,
-                            ),
-                            SizedBox(width: 6.w),
-                            Text(
-                              'Bộ lọc nhanh',
-                              style: TextStyle(
-                                fontSize: 12.sp,
-                                fontWeight: FontWeight.w600,
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                            const Spacer(),
-                            if (hasActiveFilters)
-                              TextButton.icon(
-                                onPressed: () {
-                                  setState(() {
-                                    _selectedStockStatus = 'all';
-                                    _selectedCategoryId = null;
-                                  });
-                                },
-                                icon: const Icon(
-                                  Icons.filter_alt_off,
-                                  size: 16,
-                                ),
-                                label: const Text('Xóa lọc'),
-                              ),
-                          ],
-                        ),
-                        SizedBox(height: 8.h),
-                        if (isPhone)
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              SingleChildScrollView(
-                                scrollDirection: Axis.horizontal,
-                                child: Row(
-                                  children: [
-                                    for (final chip in filterChips)
-                                      Padding(
-                                        padding: EdgeInsets.only(right: 8.w),
-                                        child: chip,
-                                      ),
-                                  ],
-                                ),
-                              ),
-                              SizedBox(height: 10.h),
-                              categoryDropdown,
-                            ],
-                          )
-                        else
-                          Wrap(
-                            spacing: 8.w,
-                            runSpacing: 8.h,
-                            children: [
-                              ...filterChips,
-                              categoryDropdown,
-                            ],
-                          ),
-                      ],
-                    ),
-                  ),
-                  Padding(
-                    padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 8.h),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            query.isEmpty
-                                ? '${products.length} sản phẩm sẵn sàng bán'
-                                : '${filteredProducts.length}/${products.length} sản phẩm phù hợp',
-                            style: TextStyle(
-                              fontSize: 13.sp,
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.onSurfaceVariant,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                        if (hasActiveFilters)
-                          Container(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: 10.w,
-                              vertical: 6.h,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.primary.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(20.r),
-                            ),
-                            child: Text(
-                              'Đang lọc',
-                              style: TextStyle(
-                                fontSize: 11.sp,
-                                fontWeight: FontWeight.w700,
-                                color: Theme.of(context).colorScheme.primary,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                  Padding(
-                    padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 12.h),
-                    child: Wrap(
-                      spacing: 12.w,
-                      runSpacing: 12.h,
-                      children: [
-                        _POSStatCard(
-                          title: 'Còn hàng',
-                          value: '$inStockCount',
-                          icon: Icons.inventory_2_outlined,
-                          color: Colors.green,
-                        ),
-                        _POSStatCard(
-                          title: 'Sắp hết',
-                          value: '$lowStockCount',
-                          icon: Icons.warning_amber_rounded,
-                          color: Colors.orange,
-                        ),
-                        _POSStatCard(
-                          title: 'Hết hàng',
-                          value: '$outOfStockCount',
-                          icon: Icons.remove_circle_outline,
-                          color: Colors.redAccent,
-                        ),
-                      ],
-                    ),
-                  ),
-                  Expanded(
-                    child: filteredProducts.isEmpty
-                        ? _EmptyProductState(
-                            hasQuery: query.isNotEmpty,
-                            onClearQuery: () {
-                              _searchController.clear();
-                              setState(() {});
-                            },
-                          )
-                        : GridView.builder(
-                            padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 16.h),
-                            gridDelegate:
-                                SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: gridCount,
-                                  crossAxisSpacing: 12.w,
-                                  mainAxisSpacing: 12.h,
-                                  childAspectRatio: gridAspectRatio,
-                                ),
-                            itemCount: filteredProducts.length,
-                            itemBuilder: (context, index) {
-                              final product = filteredProducts[index];
-                              return _ProductCard(
-                                product: product,
-                                onTap: () {
-                                  ref
-                                      .read(cartProvider.notifier)
-                                      .addProduct(product);
-                                },
-                              );
-                            },
-                          ),
-                  ),
-                ],
-              );
-
-              final cartSection = Align(
-                alignment: Alignment.topCenter,
-                child: SizedBox(
-                  width: cartWidth.toDouble(),
-                  child: _CartSection(
-                    cartState: cartState,
-                    currencyFormat: _currencyFormat,
-                    onCheckout: _handleCheckout,
-                  ),
-                ),
-              );
-
-              if (isPhone) {
-                return productSection;
-              }
-
-              if (!useSplitView) {
-                return Column(
-                  children: [
-                    Expanded(flex: 3, child: productSection),
-                    SizedBox(height: 12.h),
-                    Expanded(flex: 2, child: cartSection),
-                  ],
-                );
-              }
-
-              return Row(
-                children: [
-                  Expanded(flex: 3, child: productSection),
-                  SizedBox(width: 16.w),
-                  cartSection,
-                ],
               );
             },
-          );
-        },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stack) => Center(child: Text('Lỗi: $error')),
+          ),
+        ],
+      ),
+      body: SafeArea(
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(12.w, 12.h, 12.w, 16.h),
+          child: _CartSection(
+            cartState: cartState,
+            currencyFormat: _currencyFormat,
+            onCheckout: _handleCheckout,
+          ),
+        ),
       ),
     );
+  }
+}
+
+class _POSBarcodeScannerSheet extends StatefulWidget {
+  const _POSBarcodeScannerSheet();
+
+  @override
+  State<_POSBarcodeScannerSheet> createState() =>
+      _POSBarcodeScannerSheetState();
+}
+
+class _POSBarcodeScannerSheetState extends State<_POSBarcodeScannerSheet> {
+  final MobileScannerController _controller = MobileScannerController(
+    detectionSpeed: DetectionSpeed.normal,
+    facing: CameraFacing.back,
+  );
+  bool _didDetect = false;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _onDetect(BarcodeCapture capture) {
+    if (_didDetect) return;
+
+    for (final barcode in capture.barcodes) {
+      final raw = barcode.rawValue?.trim();
+      if (raw == null || raw.isEmpty) continue;
+      _didDetect = true;
+      _controller.stop();
+      if (mounted) {
+        Navigator.of(context).pop(raw);
+      }
+      break;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+    return SizedBox(
+      height: size.height * 0.82,
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
+            child: Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'Quét mã vạch',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Đèn',
+                  onPressed: _controller.toggleTorch,
+                  icon: const Icon(Icons.flashlight_on_rounded),
+                ),
+                IconButton(
+                  tooltip: 'Đóng',
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 4),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(18),
+                child: MobileScanner(
+                  controller: _controller,
+                  onDetect: _onDetect,
+                ),
+              ),
+            ),
+          ),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(16, 0, 16, 20),
+            child: Text(
+              'Đặt mã vạch vào giữa khung để quét.',
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _POSProductSearchDelegate extends SearchDelegate<Product?> {
+  final List<Product> products;
+  final NumberFormat currencyFormat;
+
+  _POSProductSearchDelegate({
+    required this.products,
+    required this.currencyFormat,
+  });
+
+  @override
+  String get searchFieldLabel => 'Tìm tên hoặc mã vạch';
+
+  List<Product> _filterProducts(String input) {
+    final normalized = input.trim().toLowerCase();
+    final source = products.where((product) => product.isActive);
+
+    if (normalized.isEmpty) {
+      return source.take(20).toList();
+    }
+
+    return source.where((product) {
+      final name = product.name.toLowerCase();
+      final barcode = product.barcode?.toLowerCase() ?? '';
+      return name.contains(normalized) || barcode.contains(normalized);
+    }).take(30).toList();
+  }
+
+  Widget _buildList(BuildContext context, List<Product> results) {
+    final theme = Theme.of(context);
+
+    if (results.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            query.trim().isEmpty
+                ? 'Nhập tên hoặc mã vạch để tìm.'
+                : 'Không tìm thấy sản phẩm phù hợp.',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+    }
+
+    return ListView.separated(
+      itemCount: results.length,
+      separatorBuilder: (_, _) => const Divider(height: 1),
+      itemBuilder: (context, index) {
+        final product = results[index];
+        final salePrice = product.salePrice ?? 0;
+        final stock = product.currentStock?.toInt() ?? 0;
+        final statusColor = product.isOutOfStock
+            ? Colors.redAccent
+            : product.isLowStock
+            ? Colors.orange
+            : theme.colorScheme.primary;
+
+        return ListTile(
+          onTap: () => close(context, product),
+          leading: CircleAvatar(
+            backgroundColor: statusColor.withValues(alpha: 0.14),
+            child: Icon(
+              Icons.inventory_2_outlined,
+              color: statusColor,
+              size: 18,
+            ),
+          ),
+          title: Text(
+            product.name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          subtitle: Text(
+            '${product.barcode ?? 'Không có mã'} • $stock ${product.unit}',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          trailing: Text(
+            salePrice > 0 ? currencyFormat.format(salePrice) : 'Chưa có giá',
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              color: salePrice > 0
+                  ? theme.colorScheme.primary
+                  : theme.colorScheme.error,
+            ),
+          ),
+        );
       },
     );
+  }
+
+  @override
+  List<Widget>? buildActions(BuildContext context) {
+    return [
+      if (query.isNotEmpty)
+        IconButton(
+          icon: const Icon(Icons.clear_rounded),
+          tooltip: 'Xóa',
+          onPressed: () {
+            query = '';
+            showSuggestions(context);
+          },
+        ),
+    ];
+  }
+
+  @override
+  Widget? buildLeading(BuildContext context) {
+    return IconButton(
+      icon: const Icon(Icons.arrow_back_rounded),
+      tooltip: 'Đóng',
+      onPressed: () => close(context, null),
+    );
+  }
+
+  @override
+  Widget buildSuggestions(BuildContext context) {
+    final results = _filterProducts(query);
+    return _buildList(context, results);
+  }
+
+  @override
+  Widget buildResults(BuildContext context) {
+    final results = _filterProducts(query);
+    return _buildList(context, results);
   }
 }
 
@@ -672,18 +536,7 @@ class _CartSection extends ConsumerWidget {
           ),
           Expanded(
             child: cartState.items.isEmpty
-                ? _EmptyCartState(
-                    onSuggestProduct: () {
-                      final controller = PrimaryScrollController.of(context);
-                      if (controller.hasClients) {
-                        controller.animateTo(
-                          0,
-                          duration: const Duration(milliseconds: 300),
-                          curve: Curves.easeOut,
-                        );
-                      }
-                    },
-                  )
+                ? const _EmptyCartState()
                 : ListView.builder(
                     padding: EdgeInsets.fromLTRB(8.w, 8.h, 8.w, 0),
                     itemCount: cartState.items.length,
@@ -768,181 +621,8 @@ class _CartSection extends ConsumerWidget {
   }
 }
 
-class _MobileCartBar extends StatelessWidget {
-  final CartState cartState;
-  final NumberFormat currencyFormat;
-  final VoidCallback onOpenCart;
-  final Future<void> Function() onCheckout;
-
-  const _MobileCartBar({
-    required this.cartState,
-    required this.currencyFormat,
-    required this.onOpenCart,
-    required this.onCheckout,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final isDisabled = cartState.items.isEmpty || cartState.isLoading;
-
-    return SafeArea(
-      top: false,
-      child: Container(
-        padding: EdgeInsets.fromLTRB(16.w, 10.h, 16.w, 12.h),
-        decoration: BoxDecoration(
-          color: scheme.surface,
-          border: Border(top: BorderSide(color: scheme.outlineVariant)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.08),
-              blurRadius: 16,
-              offset: const Offset(0, -6),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: InkWell(
-                onTap: onOpenCart,
-                borderRadius: BorderRadius.circular(14.r),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 44.w,
-                      height: 44.w,
-                      decoration: BoxDecoration(
-                        color: scheme.primary.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(14.r),
-                      ),
-                      child: Icon(
-                        Icons.shopping_cart,
-                        color: scheme.primary,
-                        size: 22.sp,
-                      ),
-                    ),
-                    SizedBox(width: 10.w),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            'Giỏ hàng (${cartState.itemCount})',
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleMedium
-                                ?.copyWith(
-                                  fontWeight: FontWeight.w700,
-                                ),
-                          ),
-                          SizedBox(height: 2.h),
-                          Text(
-                            currencyFormat.format(cartState.finalAmount),
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodyMedium
-                                ?.copyWith(
-                                  color: scheme.onSurfaceVariant,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            SizedBox(width: 12.w),
-            SizedBox(
-              height: 44.h,
-              child: FilledButton.icon(
-                onPressed: isDisabled ? null : onCheckout,
-                icon: cartState.isLoading
-                    ? SizedBox(
-                        width: 16.w,
-                        height: 16.w,
-                        child: const CircularProgressIndicator(
-                          strokeWidth: 2.2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Icon(Icons.payment),
-                label: Text(
-                  cartState.isLoading ? 'Đang xử lý' : 'Thanh toán',
-                  style: TextStyle(fontSize: 13.sp, fontWeight: FontWeight.w700),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _EmptyProductState extends StatelessWidget {
-  final bool hasQuery;
-  final VoidCallback onClearQuery;
-
-  const _EmptyProductState({
-    required this.hasQuery,
-    required this.onClearQuery,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Center(
-      child: Padding(
-        padding: EdgeInsets.all(24.w),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              hasQuery ? Icons.search_off : Icons.inventory_2_outlined,
-              size: 56.sp,
-              color: theme.colorScheme.primary,
-            ),
-            SizedBox(height: 12.h),
-            Text(
-              hasQuery ? 'Không tìm thấy sản phẩm phù hợp' : 'Chưa có sản phẩm',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            SizedBox(height: 6.h),
-            Text(
-              hasQuery
-                  ? 'Thử thay đổi từ khóa hoặc xóa bộ lọc để xem toàn bộ sản phẩm.'
-                  : 'Hãy nhập kho sản phẩm để bắt đầu bán hàng.',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            if (hasQuery) ...[
-              SizedBox(height: 14.h),
-              FilledButton.tonalIcon(
-                onPressed: onClearQuery,
-                icon: const Icon(Icons.refresh),
-                label: const Text('Xóa tìm kiếm'),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _EmptyCartState extends StatelessWidget {
-  final VoidCallback onSuggestProduct;
-
-  const _EmptyCartState({required this.onSuggestProduct});
+  const _EmptyCartState();
 
   @override
   Widget build(BuildContext context) {
@@ -967,233 +647,11 @@ class _EmptyCartState extends StatelessWidget {
             ),
             SizedBox(height: 6.h),
             Text(
-              'Chọn sản phẩm từ danh sách bên trái để thêm vào đơn hàng.',
+              'Dùng nút tìm kiếm hoặc quét mã vạch ở góc trên để thêm sản phẩm vào đơn hàng.',
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
               textAlign: TextAlign.center,
-            ),
-            SizedBox(height: 14.h),
-            FilledButton.tonalIcon(
-              onPressed: onSuggestProduct,
-              icon: const Icon(Icons.touch_app),
-              label: const Text('Gợi ý thao tác'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _POSFilterChip extends StatelessWidget {
-  final String label;
-  final bool selected;
-  final VoidCallback onSelected;
-
-  const _POSFilterChip({
-    required this.label,
-    required this.selected,
-    required this.onSelected,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return FilterChip(
-      label: Text(label),
-      selected: selected,
-      onSelected: (_) => onSelected(),
-      labelStyle: TextStyle(fontSize: 12.sp, fontWeight: FontWeight.w600),
-      selectedColor: Theme.of(
-        context,
-      ).colorScheme.primary.withValues(alpha: 0.15),
-    );
-  }
-}
-
-class _POSStatCard extends StatelessWidget {
-  final String title;
-  final String value;
-  final IconData icon;
-  final Color color;
-
-  const _POSStatCard({
-    required this.title,
-    required this.value,
-    required this.icon,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(16.r),
-        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            padding: EdgeInsets.all(8.w),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(12.r),
-            ),
-            child: Icon(icon, color: color, size: 18.sp),
-          ),
-          SizedBox(width: 10.w),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: 11.sp,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              Text(
-                value,
-                style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.bold),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// Product card widget
-class _ProductCard extends StatelessWidget {
-  final Product product;
-  final VoidCallback onTap;
-
-  const _ProductCard({required this.product, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final currencyFormat = NumberFormat.currency(locale: 'vi_VN', symbol: '₫');
-    final colorScheme = Theme.of(context).colorScheme;
-    final statusColor = product.isOutOfStock
-        ? Colors.redAccent
-        : product.isLowStock
-        ? Colors.orange
-        : Colors.green;
-    final statusLabel = product.isOutOfStock
-        ? 'Hết hàng'
-        : product.isLowStock
-        ? 'Sắp hết'
-        : 'Còn hàng';
-
-    return Card(
-      elevation: 1.5,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: product.isOutOfStock ? null : onTap,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Product image placeholder
-            Container(
-              height: 96.h,
-              padding: EdgeInsets.all(8.w),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    colorScheme.surfaceContainerHighest,
-                    colorScheme.surfaceContainerLow,
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-              ),
-              child: Align(
-                alignment: Alignment.topRight,
-                child: Container(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: 10.w,
-                    vertical: 4.h,
-                  ),
-                  decoration: BoxDecoration(
-                    color: statusColor.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(20.r),
-                  ),
-                  child: Text(
-                    statusLabel,
-                    style: TextStyle(
-                      fontSize: 10.sp,
-                      fontWeight: FontWeight.w700,
-                      color: statusColor,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-
-            Expanded(
-              child: Padding(
-                padding: EdgeInsets.all(10.w),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      product.name,
-                      style: TextStyle(
-                        fontSize: 13.sp,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const Spacer(),
-                    if (product.avgCostPrice != null)
-                      Text(
-                        currencyFormat.format(
-                          product.avgCostPrice! *
-                              AppConstants.defaultSalePriceMultiplier,
-                        ),
-                        style: TextStyle(
-                          fontSize: 12.sp,
-                          color: colorScheme.primary,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    SizedBox(height: 4.h),
-                    Row(
-                      children: [
-                        Text(
-                          '${product.currentStock?.toInt() ?? 0} ${product.unit}',
-                          style: TextStyle(
-                            fontSize: 11.sp,
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                        const Spacer(),
-                        Icon(
-                          Icons.add_circle,
-                          size: 18.sp,
-                          color: product.isOutOfStock
-                              ? Colors.grey
-                              : statusColor,
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
             ),
           ],
         ),
@@ -1356,7 +814,7 @@ class _CartItemTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final currencyFormat = NumberFormat.currency(locale: 'vi_VN', symbol: '₫');
+    final currencyFormat = NumberFormat.currency(locale: 'vi_VN', symbol: 'đ');
 
     return Container(
       margin: EdgeInsets.symmetric(horizontal: 8.w, vertical: 6.h),

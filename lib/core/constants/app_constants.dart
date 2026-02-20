@@ -23,8 +23,17 @@ class AppConstants {
   static const String tableSales = 'sales';
   static const String tableSaleItems = 'sale_items';
   static const String tableCustomers = 'customers';
+  static const String tableCustomerImages = 'customer_images';
   static const String tableDebtPayments = 'debt_payments';
   static const String tableDailyReports = 'daily_reports';
+
+  // Storage Buckets
+  static const String bucketCustomerImages = 'customer-images';
+
+  // Customer images
+  static const int maxCustomerImages = 20;
+  static const int customerImageMaxWidth = 1920;
+  static const int customerImageJpegQuality = 82;
 
   // Payment Methods
   static const String paymentCash = 'cash';
@@ -69,9 +78,6 @@ class AppConstants {
   static const double defaultPadding = 16.0;
   static const double defaultRadius = 8.0;
   static const int defaultPageSize = 20;
-  // Pricing
-  // Keep in sync with Angular POS price calculation: avg_cost_price * 1.3
-  static const double defaultSalePriceMultiplier = 1.3;
 
   // Date Formats
   static const String dateFormat = 'dd/MM/yyyy';
@@ -85,6 +91,18 @@ class AppConstants {
   // VietQR Configuration
   static const String vietQRBaseUrl = 'https://img.vietqr.io/image';
   static const String vietQRTemplate = 'compact';
+  static final String vietQRBankCode =
+      (dotenv.env['VIETQR_BANK_CODE'] ?? '').trim().isEmpty
+      ? 'MSB'
+      : (dotenv.env['VIETQR_BANK_CODE'] ?? '').trim();
+  static final String vietQRAccountNumber =
+      (dotenv.env['VIETQR_ACCOUNT_NUMBER'] ?? '').trim().isEmpty
+      ? '04201012814032'
+      : (dotenv.env['VIETQR_ACCOUNT_NUMBER'] ?? '').trim();
+  static final String vietQRAccountName =
+      (dotenv.env['VIETQR_ACCOUNT_NAME'] ?? '').trim().isEmpty
+      ? 'LE CONG PHU'
+      : (dotenv.env['VIETQR_ACCOUNT_NAME'] ?? '').trim();
 }
 
 /// Role names

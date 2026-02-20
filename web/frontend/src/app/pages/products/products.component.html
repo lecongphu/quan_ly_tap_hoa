@@ -66,6 +66,8 @@
           <th>Tên sản phẩm</th>
           <th>Danh mục</th>
           <th>Đơn vị</th>
+          <th>Giá vốn</th>
+          <th>Giá bán</th>
           <th>Tồn tối thiểu</th>
           <th>Trạng thái</th>
           <th>Thao tác</th>
@@ -77,6 +79,8 @@
           <td>{{ product.name }}</td>
           <td>{{ product.category_name || '-' }}</td>
           <td>{{ product.unit }}</td>
+          <td>{{ product.avg_cost_price != null ? formatCurrency(product.avg_cost_price) : 'Chưa có giá' }}</td>
+          <td>{{ product.sale_price != null ? formatCurrency(product.sale_price) : 'Chưa có giá' }}</td>
           <td>{{ product.min_stock_level || 0 }}</td>
           <td>
             <span class="badge" [class.active]="product.is_active">{{ product.is_active ? 'Hoạt động' : 'Ngừng' }}</span>
@@ -114,12 +118,37 @@
     </div>
     <div class="dialog-body">
       <label>
-        Tên sản phẩm
-        <input class="input" [(ngModel)]="formData.name" />
+        Mã vạch
+        <div class="barcode-row">
+          <input
+            class="input"
+            [(ngModel)]="formData.barcode"
+            (keyup.enter)="lookupProductByBarcode()"
+            placeholder="Nhập hoặc quét mã vạch..."
+          />
+          <button
+            type="button"
+            class="btn btn-outline lookup-btn"
+            (click)="lookupProductByBarcode()"
+            [disabled]="isBarcodeLookupLoading"
+          >
+            <span class="material-icons">{{
+              isBarcodeLookupLoading ? 'hourglass_top' : 'qr_code_scanner'
+            }}</span>
+            {{ isBarcodeLookupLoading ? 'Đang tra cứu' : 'Tra cứu mã vạch' }}
+          </button>
+        </div>
+        <small
+          class="lookup-message"
+          [class.error]="barcodeLookupError"
+          *ngIf="barcodeLookupMessage"
+        >
+          {{ barcodeLookupMessage }}
+        </small>
       </label>
       <label>
-        Barcode
-        <input class="input" [(ngModel)]="formData.barcode" />
+        Tên sản phẩm
+        <input class="input" [(ngModel)]="formData.name" />
       </label>
       <label>
         Danh mục

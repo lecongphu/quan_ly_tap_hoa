@@ -12,7 +12,7 @@ import { AuthService } from '../../core/auth.service';
   styleUrl: './login.component.scss'
 })
 export class LoginComponent implements OnInit {
-  readonly appName = 'Quản lý Tạp hóa';
+  readonly appName = 'Quản lý Tạp hóa Ba Y';
   readonly version = '1.0.0';
 
   hidePassword = true;
@@ -27,9 +27,7 @@ export class LoginComponent implements OnInit {
   constructor(private fb: FormBuilder, private auth: AuthService, private router: Router) {}
 
   ngOnInit(): void {
-    if (this.auth.isAuthenticated) {
-      this.router.navigateByUrl('/');
-    }
+    void this.redirectIfAuthenticated();
   }
 
   submit(): void {
@@ -53,5 +51,12 @@ export class LoginComponent implements OnInit {
         this.errorMessage = err?.error?.message || 'Đăng nhập thất bại.';
       }
     });
+  }
+
+  private async redirectIfAuthenticated(): Promise<void> {
+    const hasSession = await this.auth.hasActiveSession();
+    if (hasSession) {
+      await this.router.navigateByUrl('/');
+    }
   }
 }

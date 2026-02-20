@@ -189,6 +189,7 @@ class _CreatePurchaseOrderScreenState
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = MediaQuery.sizeOf(context).width < 900;
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
@@ -213,16 +214,41 @@ class _CreatePurchaseOrderScreenState
       ),
       body: Form(
         key: _formKey,
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Left column - Products & Payment
-            Expanded(flex: 3, child: _buildLeftColumn()),
-            const SizedBox(width: 16),
-            // Right column - Order Info
-            Expanded(flex: 2, child: _buildRightColumn()),
-          ],
-        ),
+        child: isMobile
+            ? _buildMobileContent()
+            : Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Left column - Products & Payment
+                  Expanded(flex: 3, child: _buildLeftColumn()),
+                  const SizedBox(width: 16),
+                  // Right column - Order Info
+                  Expanded(flex: 2, child: _buildRightColumn()),
+                ],
+              ),
+      ),
+    );
+  }
+
+  Widget _buildMobileContent() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildProductSection(),
+          const SizedBox(height: 12),
+          _buildSupplierSection(),
+          const SizedBox(height: 12),
+          _buildWarehouseSection(),
+          const SizedBox(height: 12),
+          _buildAdditionalInfoSection(),
+          const SizedBox(height: 12),
+          _buildPaymentSection(),
+          const SizedBox(height: 12),
+          _buildNotesSection(),
+          const SizedBox(height: 16),
+        ],
       ),
     );
   }
@@ -391,139 +417,159 @@ class _CreatePurchaseOrderScreenState
     final currencyFormat = NumberFormat.currency(locale: 'vi_VN', symbol: '₫');
 
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Header
-        Container(
-          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-          decoration: BoxDecoration(
-            color: Colors.grey[100],
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: const Row(
-            children: [
-              Expanded(
-                flex: 3,
-                child: Text(
-                  'Sản phẩm',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
-              Expanded(
-                flex: 2,
-                child: Text(
-                  'Số lượng',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
-              Expanded(
-                flex: 2,
-                child: Text(
-                  'Đơn giá',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
-              Expanded(
-                flex: 2,
-                child: Text(
-                  'Thành tiền',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
-              SizedBox(width: 40),
-            ],
-          ),
-        ),
-        const SizedBox(height: 8),
-        // Items
-        ListView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: _selectedItems.length,
-          itemBuilder: (context, index) {
-            final item = _selectedItems[index];
-            return Container(
-              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-              margin: const EdgeInsets.only(bottom: 8),
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey[300]!),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    flex: 3,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          item.productName ?? '',
-                          style: const TextStyle(fontWeight: FontWeight.w500),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 720),
+            child: Column(
+              children: [
+                // Header
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 8,
+                    horizontal: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[100],
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: const Row(
+                    children: [
+                      Expanded(
+                        flex: 3,
+                        child: Text(
+                          'Sản phẩm',
+                          style: TextStyle(fontWeight: FontWeight.bold),
                         ),
-                        Text(
-                          'Đơn vị: ${item.productUnit}',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[600],
+                      ),
+                      Expanded(
+                        flex: 2,
+                        child: Text(
+                          'Số lượng',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      Expanded(
+                        flex: 2,
+                        child: Text(
+                          'Đơn giá',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      Expanded(
+                        flex: 2,
+                        child: Text(
+                          'Thành tiền',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      SizedBox(width: 40),
+                    ],
+                  ),
+                ),
+                // Items
+                ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: _selectedItems.length,
+                  itemBuilder: (context, index) {
+                    final item = _selectedItems[index];
+                    return Container(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 8,
+                        horizontal: 12,
+                      ),
+                      margin: const EdgeInsets.only(bottom: 8),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey[300]!),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            flex: 3,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  item.productName ?? '',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                Text(
+                                  'Đơn vị: ${item.productUnit}',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Expanded(
-                    flex: 2,
-                    child: TextFormField(
-                      initialValue: item.quantity.toString(),
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        isDense: true,
-                        contentPadding: EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 8,
-                        ),
-                        border: OutlineInputBorder(),
+                          Expanded(
+                            flex: 2,
+                            child: TextFormField(
+                              initialValue: item.quantity.toString(),
+                              keyboardType: TextInputType.number,
+                              decoration: const InputDecoration(
+                                isDense: true,
+                                contentPadding: EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 8,
+                                ),
+                                border: OutlineInputBorder(),
+                              ),
+                              onChanged: (value) {
+                                final qty = double.tryParse(value) ?? 0;
+                                _updateItemQuantity(index, qty);
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            flex: 2,
+                            child: TextFormField(
+                              initialValue: item.unitPrice.toString(),
+                              keyboardType: TextInputType.number,
+                              decoration: const InputDecoration(
+                                isDense: true,
+                                contentPadding: EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 8,
+                                ),
+                                border: OutlineInputBorder(),
+                              ),
+                              onChanged: (value) {
+                                final price = double.tryParse(value) ?? 0;
+                                _updateItemPrice(index, price);
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            flex: 2,
+                            child: Text(
+                              currencyFormat.format(item.subtotal),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.delete, color: Colors.red),
+                            onPressed: () => _removeProduct(index),
+                          ),
+                        ],
                       ),
-                      onChanged: (value) {
-                        final qty = double.tryParse(value) ?? 0;
-                        _updateItemQuantity(index, qty);
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    flex: 2,
-                    child: TextFormField(
-                      initialValue: item.unitPrice.toString(),
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        isDense: true,
-                        contentPadding: EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 8,
-                        ),
-                        border: OutlineInputBorder(),
-                      ),
-                      onChanged: (value) {
-                        final price = double.tryParse(value) ?? 0;
-                        _updateItemPrice(index, price);
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    flex: 2,
-                    child: Text(
-                      currencyFormat.format(item.subtotal),
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.delete, color: Colors.red),
-                    onPressed: () => _removeProduct(index),
-                  ),
-                ],
-              ),
-            );
-          },
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
         ),
         const SizedBox(height: 8),
         OutlinedButton.icon(
@@ -585,20 +631,26 @@ class _CreatePurchaseOrderScreenState
 
   Widget _buildPaymentRow(String label, String value, {bool isTotal = false}) {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: isTotal ? 16 : 14,
-            fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
+        Expanded(
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: isTotal ? 16 : 14,
+              fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
+            ),
           ),
         ),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: isTotal ? 16 : 14,
-            fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
+        const SizedBox(width: 8),
+        Flexible(
+          child: Text(
+            value,
+            textAlign: TextAlign.right,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: isTotal ? 16 : 14,
+              fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
+            ),
           ),
         ),
       ],
@@ -610,26 +662,37 @@ class _CreatePurchaseOrderScreenState
     TextEditingController controller,
     String displayValue,
   ) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(label),
-        SizedBox(
-          width: 150,
-          child: TextFormField(
-            controller: controller,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
-              isDense: true,
-              contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-              border: OutlineInputBorder(),
-            ),
-            onChanged: (value) {
-              setState(() {});
-            },
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isNarrow = constraints.maxWidth < 420;
+        final input = TextFormField(
+          controller: controller,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(
+            isDense: true,
+            contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            border: OutlineInputBorder(),
           ),
-        ),
-      ],
+          onChanged: (value) {
+            setState(() {});
+          },
+        );
+
+        if (isNarrow) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [Text(label), const SizedBox(height: 6), input],
+          );
+        }
+
+        return Row(
+          children: [
+            Expanded(child: Text(label)),
+            const SizedBox(width: 12),
+            SizedBox(width: 150, child: input),
+          ],
+        );
+      },
     );
   }
 

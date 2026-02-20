@@ -1,6 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.CAMERA"/>
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <application
-        android:label="quan_ly_tap_hoa"
+        android:label="Tạp hóa Ba Y"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

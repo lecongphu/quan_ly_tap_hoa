@@ -1,11 +1,13 @@
-﻿import { CommonModule } from '@angular/common';
+import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { Location } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import * as XLSX from 'xlsx';
+import type * as XLSX from 'xlsx';
 import { DebtService } from '../../core/debt.service';
 import { Customer, CustomerSale, DebtLine, DebtPayment } from '../../models/customer.model';
+
+type XLSXModule = typeof import('xlsx');
 
 @Component({
   selector: 'app-debt',
@@ -33,6 +35,7 @@ export class DebtComponent implements OnInit {
   selectedYear: number | null = null;
   availableYears: number[] = [];
   showDuplicateOnly = false;
+  private xlsxModulePromise: Promise<XLSXModule> | null = null;
 
   paymentForm = {
     amount: 0,
@@ -361,8 +364,10 @@ export class DebtComponent implements OnInit {
     return this.applyYearFilter(this.paymentHistory, (payment) => payment.created_at);
   }
 
-  exportDebtLinesToExcel(): void {
+  async exportDebtLinesToExcel(): Promise<void> {
     if (!this.selectedCustomer) return;
+    const XLSX = await this.loadXlsxModule();
+    if (!XLSX) return;
     const lines = this.filteredDebtLines;
     if (!lines.length) {
       window.alert('Không có dòng nợ để xuất.');
@@ -387,6 +392,7 @@ export class DebtComponent implements OnInit {
 
     const worksheet = XLSX.utils.json_to_sheet(rows, { cellDates: true });
     this.applySheetFormatting(
+      XLSX,
       worksheet,
       [6, 16, 18, 12, 14, 24, 12, 40],
       [4],
@@ -404,8 +410,10 @@ export class DebtComponent implements OnInit {
     XLSX.writeFile(workbook, fileName);
   }
 
-  exportSalesToExcel(): void {
+  async exportSalesToExcel(): Promise<void> {
     if (!this.selectedCustomer) return;
+    const XLSX = await this.loadXlsxModule();
+    if (!XLSX) return;
     const sales = this.filteredSalesHistory;
     if (!sales.length) {
       window.alert('Không có hóa đơn để xuất.');
@@ -425,6 +433,7 @@ export class DebtComponent implements OnInit {
 
     const worksheet = XLSX.utils.json_to_sheet(rows, { cellDates: true });
     this.applySheetFormatting(
+      XLSX,
       worksheet,
       [6, 16, 18, 14, 14, 14, 12, 14],
       [3, 4, 5],
@@ -442,8 +451,10 @@ export class DebtComponent implements OnInit {
     XLSX.writeFile(workbook, fileName);
   }
 
-  exportPaymentsToExcel(): void {
+  async exportPaymentsToExcel(): Promise<void> {
     if (!this.selectedCustomer) return;
+    const XLSX = await this.loadXlsxModule();
+    if (!XLSX) return;
     const payments = this.filteredPaymentHistory;
     if (!payments.length) {
       window.alert('Không có thanh toán để xuất.');
@@ -459,7 +470,7 @@ export class DebtComponent implements OnInit {
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(rows, { cellDates: true });
-    this.applySheetFormatting(worksheet, [6, 18, 14, 14, 24], [2], [1]);
+    this.applySheetFormatting(XLSX, worksheet, [6, 18, 14, 14, 24], [2], [1]);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'ThanhToan');
 
@@ -480,6 +491,7 @@ export class DebtComponent implements OnInit {
   }
 
   private applySheetFormatting(
+    XLSX: XLSXModule,
     worksheet: XLSX.WorkSheet,
     columnWidths: number[],
     moneyColumns: number[],
@@ -505,6 +517,18 @@ export class DebtComponent implements OnInit {
         cell.t = 'n';
         cell.z = '#,##0';
       }
+    }
+  }
+
+  private async loadXlsxModule(): Promise<XLSXModule | null> {
+    try {
+      if (!this.xlsxModulePromise) {
+        this.xlsxModulePromise = import('xlsx');
+      }
+      return await this.xlsxModulePromise;
+    } catch {
+      window.alert('Khong the tai cong cu xuat Excel. Vui long thu lai.');
+      return null;
     }
   }
 

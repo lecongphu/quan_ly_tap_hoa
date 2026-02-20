@@ -61,6 +61,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = MediaQuery.sizeOf(context).width < 760;
     return Scaffold(
       body: Container(
         decoration: BoxDecoration(
@@ -82,8 +83,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 borderRadius: BorderRadius.circular(16.r),
               ),
               child: Container(
-                width: 500.w,
-                padding: EdgeInsets.all(40.w),
+                constraints: BoxConstraints(maxWidth: isMobile ? 360 : 500.w),
+                padding: EdgeInsets.all(isMobile ? 24.w : 40.w),
                 child: Form(
                   key: _formKey,
                   child: Column(
@@ -93,7 +94,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       // Logo & Title
                       Icon(
                         Icons.store,
-                        size: 80.sp,
+                        size: isMobile ? 56.sp : 80.sp,
                         color: Theme.of(context).colorScheme.primary,
                       ),
                       SizedBox(height: 16.h),

@@ -22,6 +22,7 @@ export class PosService {
     customer_id?: string | null;
     payment_method: 'cash' | 'transfer' | 'debt';
     discount_amount?: number;
+    due_date?: string | null;
     notes?: string | null;
     items: Array<{ product_id: string; quantity: number; unit_price: number }>;
   }): Observable<{ sale: unknown; items: unknown[] }> {
@@ -31,6 +32,7 @@ export class PosService {
         p_items: payload.items,
         p_customer_id: payload.customer_id ?? null,
         p_discount_amount: payload.discount_amount ?? 0,
+        p_due_date: payload.due_date ?? null,
         p_notes: payload.notes ?? null
       })
     ).pipe(

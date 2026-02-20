@@ -10,6 +10,7 @@ class ProductService {
     required String categoryId,
     String? barcode,
     double? minStockLevel,
+    double? salePrice,
   }) async {
     try {
       final supabase = SupabaseService.client;
@@ -21,6 +22,7 @@ class ProductService {
             'category_id': categoryId,
             'barcode': barcode,
             'min_stock_level': minStockLevel ?? 0,
+            'sale_price': salePrice,
             'is_active': true,
           })
           .select('*, category:categories(name)')
@@ -54,13 +56,15 @@ class ProductService {
       }
 
       final products = await query.order('created_at', ascending: false);
-      final inventoryRows =
-          await supabase.from('current_inventory').select('*');
+      final inventoryRows = await supabase
+          .from('current_inventory')
+          .select('*');
 
       final inventoryMap = <String, Map<String, dynamic>>{};
       for (final row in inventoryRows) {
-        inventoryMap[row['product_id'] as String] =
-            Map<String, dynamic>.from(row as Map);
+        inventoryMap[row['product_id'] as String] = Map<String, dynamic>.from(
+          row as Map,
+        );
       }
 
       var mapped = (products as List<dynamic>).map((item) {
@@ -84,11 +88,15 @@ class ProductService {
       }
 
       if (categoryId != null) {
-        mapped = mapped.where((product) => product.categoryId == categoryId).toList();
+        mapped = mapped
+            .where((product) => product.categoryId == categoryId)
+            .toList();
       }
 
       if (isActive != null) {
-        mapped = mapped.where((product) => product.isActive == isActive).toList();
+        mapped = mapped
+            .where((product) => product.isActive == isActive)
+            .toList();
       }
 
       return mapped;
@@ -135,6 +143,7 @@ class ProductService {
     String? categoryId,
     String? unit,
     double? minStockLevel,
+    double? salePrice,
     bool? isActive,
   }) async {
     try {
@@ -145,6 +154,7 @@ class ProductService {
       if (categoryId != null) updates['category_id'] = categoryId;
       if (unit != null) updates['unit'] = unit;
       if (minStockLevel != null) updates['min_stock_level'] = minStockLevel;
+      if (salePrice != null) updates['sale_price'] = salePrice;
       if (isActive != null) updates['is_active'] = isActive;
 
       final supabase = SupabaseService.client;

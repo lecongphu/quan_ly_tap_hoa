@@ -89,6 +89,27 @@ export class AuthService {
     return !!this.token;
   }
 
+  async hasActiveSession(): Promise<boolean> {
+    if (this.isAuthenticated) {
+      return true;
+    }
+
+    const { data, error } = await supabase.auth.getSession();
+    if (error || !data.session) {
+      this.clearSession();
+      return false;
+    }
+
+    this.saveSession({
+      access_token: data.session.access_token,
+      refresh_token: data.session.refresh_token,
+      expires_at: data.session.expires_at ?? undefined
+    });
+
+    await this.ensureProfileLoaded();
+    return true;
+  }
+
   private isSessionExpired(session: StoredSession): boolean {
     if (!session.expires_at) return false;
     const nowSeconds = Math.floor(Date.now() / 1000);
@@ -121,6 +142,18 @@ export class AuthService {
       return JSON.parse(raw) as UserProfile;
     } catch {
       return null;
+    }
+  }
+
+  private async ensureProfileLoaded(): Promise<void> {
+    if (this.profileSubject.value) return;
+
+    const rpc = await supabase.rpc('get_my_profile_with_permissions');
+    if (rpc.error || !rpc.data) return;
+
+    const payload = rpc.data as { profile?: UserProfile };
+    if (payload.profile) {
+      this.saveProfile(payload.profile);
     }
   }
 

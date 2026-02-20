@@ -25,6 +25,55 @@ CREATE TRIGGER update_products_updated_at BEFORE UPDATE ON products
 CREATE TRIGGER update_customers_updated_at BEFORE UPDATE ON customers
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+CREATE TRIGGER update_customer_images_updated_at BEFORE UPDATE ON customer_images
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE OR REPLACE FUNCTION enforce_customer_image_limit()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_limit INT := 20;
+    v_count INT;
+BEGIN
+    IF COALESCE(NEW.is_active, true) = false THEN
+        RETURN NEW;
+    END IF;
+
+    SELECT COUNT(*)
+    INTO v_count
+    FROM customer_images ci
+    WHERE ci.customer_id = NEW.customer_id
+      AND ci.is_active = true
+      AND (TG_OP <> 'UPDATE' OR ci.id <> NEW.id);
+
+    IF v_count >= v_limit THEN
+        RAISE EXCEPTION 'Khach hang da dat gioi han % anh.', v_limit
+            USING ERRCODE = '23514';
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER enforce_customer_image_limit_trigger
+    BEFORE INSERT OR UPDATE OF customer_id, is_active ON customer_images
+    FOR EACH ROW EXECUTE FUNCTION enforce_customer_image_limit();
+
+CREATE OR REPLACE FUNCTION clear_customer_avatar_on_image_delete()
+RETURNS TRIGGER AS $$
+BEGIN
+    UPDATE customers
+    SET avatar_image_path = NULL
+    WHERE id = OLD.customer_id
+      AND avatar_image_path = OLD.image_path;
+
+    RETURN OLD;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER clear_customer_avatar_on_image_delete_trigger
+    AFTER DELETE ON customer_images
+    FOR EACH ROW EXECUTE FUNCTION clear_customer_avatar_on_image_delete();
+
 -- ============================================
 -- 2. CUSTOMER DEBT MANAGEMENT
 -- ============================================

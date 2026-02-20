@@ -2,7 +2,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/cart_model.dart';
 import '../services/pos_service.dart';
 import '../../inventory/models/product_model.dart';
-import '../../../core/constants/app_constants.dart';
 
 /// Cart state
 class CartState {
@@ -71,11 +70,7 @@ class CartNotifier extends StateNotifier<CartState> {
       final newItem = CartItem(
         product: product,
         quantity: 1,
-        unitPrice: unitPrice > 0
-            ? unitPrice
-            : (product.avgCostPrice ?? 0) *
-                AppConstants.defaultSalePriceMultiplier,
-        // Default markup 30%
+        unitPrice: unitPrice > 0 ? unitPrice : (product.salePrice ?? 0),
         costPrice: product.avgCostPrice,
       );
       state = state.copyWith(items: [...state.items, newItem]);

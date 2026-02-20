@@ -4,6 +4,9 @@ class Customer {
   final String name;
   final String? phone;
   final String? address;
+  final double? latitude;
+  final double? longitude;
+  final String? avatarImagePath;
   final double currentDebt;
   final bool isActive;
   final DateTime createdAt;
@@ -14,6 +17,9 @@ class Customer {
     required this.name,
     this.phone,
     this.address,
+    this.latitude,
+    this.longitude,
+    this.avatarImagePath,
     this.currentDebt = 0,
     this.isActive = true,
     required this.createdAt,
@@ -26,6 +32,9 @@ class Customer {
       name: json['name'] as String,
       phone: json['phone'] as String?,
       address: json['address'] as String?,
+      latitude: (json['latitude'] as num?)?.toDouble(),
+      longitude: (json['longitude'] as num?)?.toDouble(),
+      avatarImagePath: json['avatar_image_path'] as String?,
       currentDebt: (json['current_debt'] as num?)?.toDouble() ?? 0,
       isActive: json['is_active'] as bool? ?? true,
       createdAt: DateTime.parse(json['created_at'] as String),
@@ -39,6 +48,9 @@ class Customer {
       'name': name,
       'phone': phone,
       'address': address,
+      'latitude': latitude,
+      'longitude': longitude,
+      'avatar_image_path': avatarImagePath,
       'current_debt': currentDebt,
       'is_active': isActive,
       'created_at': createdAt.toIso8601String(),
@@ -51,6 +63,9 @@ class Customer {
     String? name,
     String? phone,
     String? address,
+    double? latitude,
+    double? longitude,
+    String? avatarImagePath,
     double? currentDebt,
     bool? isActive,
     DateTime? createdAt,
@@ -61,6 +76,9 @@ class Customer {
       name: name ?? this.name,
       phone: phone ?? this.phone,
       address: address ?? this.address,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
+      avatarImagePath: avatarImagePath ?? this.avatarImagePath,
       currentDebt: currentDebt ?? this.currentDebt,
       isActive: isActive ?? this.isActive,
       createdAt: createdAt ?? this.createdAt,
@@ -69,6 +87,55 @@ class Customer {
   }
 
   bool get hasDebt => currentDebt > 0;
+}
+
+/// Customer image metadata model
+class CustomerImage {
+  final String id;
+  final String customerId;
+  final String imagePath;
+  final String? note;
+  final String? createdBy;
+  final bool isActive;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+
+  CustomerImage({
+    required this.id,
+    required this.customerId,
+    required this.imagePath,
+    this.note,
+    this.createdBy,
+    this.isActive = true,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+
+  factory CustomerImage.fromJson(Map<String, dynamic> json) {
+    return CustomerImage(
+      id: json['id'] as String,
+      customerId: json['customer_id'] as String,
+      imagePath: json['image_path'] as String,
+      note: json['note'] as String?,
+      createdBy: json['created_by'] as String?,
+      isActive: json['is_active'] as bool? ?? true,
+      createdAt: DateTime.parse(json['created_at'] as String),
+      updatedAt: DateTime.parse(json['updated_at'] as String),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'customer_id': customerId,
+      'image_path': imagePath,
+      'note': note,
+      'created_by': createdBy,
+      'is_active': isActive,
+      'created_at': createdAt.toIso8601String(),
+      'updated_at': updatedAt.toIso8601String(),
+    };
+  }
 }
 
 /// Customer sale history model

@@ -176,93 +176,107 @@ class _DebtManagementScreenState extends ConsumerState<DebtManagementScreen> {
         ],
       ),
       body: SafeArea(
-        child: Padding(
-          padding: EdgeInsets.all(16.w),
-          child: Column(
-            children: [
-              _DebtOverviewCard(
-                totalCustomers: _totalCustomers,
-                customersWithDebt: _customersWithDebt,
-                totalDebt: _totalDebt,
-                currency: currency,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final isMobile = constraints.maxWidth < 760;
+            final horizontalPadding = isMobile ? 12.w : 16.w;
+            return Padding(
+              padding: EdgeInsets.fromLTRB(
+                horizontalPadding,
+                12.h,
+                horizontalPadding,
+                12.h,
               ),
-              SizedBox(height: 12.h),
-              Card(
-                child: Padding(
-                  padding: EdgeInsets.all(16.w),
-                  child: Column(
-                    children: [
-                      _DebtTabBar(
-                        showOnlyDebt: _showOnlyDebt,
-                        onTabChanged: _setTab,
-                      ),
-                      SizedBox(height: 12.h),
-                      TextField(
-                        controller: _searchController,
-                        decoration: InputDecoration(
-                          hintText: 'Tìm khách hàng...',
-                          prefixIcon: const Icon(Icons.search_rounded),
-                          suffixIcon: _searchController.text.isNotEmpty
-                              ? IconButton(
-                                  tooltip: 'Xoá tìm kiếm',
-                                  icon: const Icon(Icons.close_rounded),
-                                  onPressed: _clearSearch,
-                                )
-                              : null,
-                          filled: true,
-                          fillColor: scheme.surface,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12.r),
-                            borderSide: BorderSide(
-                              color: scheme.outline.withValues(alpha: 0.35),
-                            ),
-                          ),
-                        ),
-                        onChanged: (_) => setState(() {}),
-                      ),
-                      if (_searchController.text.isNotEmpty) ...[
-                        SizedBox(height: 8.h),
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            'Tìm thấy $_totalCustomers khách hàng',
-                            style: TextStyle(
-                              fontSize: 12.sp,
-                              color: Colors.grey[600],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
+              child: Column(
+                children: [
+                  _DebtOverviewCard(
+                    totalCustomers: _totalCustomers,
+                    customersWithDebt: _customersWithDebt,
+                    totalDebt: _totalDebt,
+                    currency: currency,
                   ),
-                ),
-              ),
-              SizedBox(height: 12.h),
-              Expanded(
-                child: _isLoading
-                    ? const Center(child: CircularProgressIndicator())
-                    : _error != null
-                    ? Center(child: Text('Lỗi: $_error'))
-                    : _filteredCustomers.isEmpty
-                    ? const Center(child: Text('Không tìm thấy khách hàng.'))
-                    : ListView.separated(
-                        itemCount: _filteredCustomers.length,
-                        separatorBuilder: (_, index) => SizedBox(height: 12.h),
-                        itemBuilder: (context, index) {
-                          final customer = _filteredCustomers[index];
-                          return DebtCustomerCard(
-                            customer: customer,
-                            currency: currency,
-                            showAddDebt: _showOnlyDebt,
-                            onAddDebt: () => _openDebtLineDialog(customer),
-                            onCollect: () => _openPaymentDialog(customer),
-                            onDetail: () => _openDetail(customer),
-                          );
-                        },
+                  SizedBox(height: 12.h),
+                  Card(
+                    child: Padding(
+                      padding: EdgeInsets.all(isMobile ? 12.w : 16.w),
+                      child: Column(
+                        children: [
+                          _DebtTabBar(
+                            showOnlyDebt: _showOnlyDebt,
+                            onTabChanged: _setTab,
+                          ),
+                          SizedBox(height: 12.h),
+                          TextField(
+                            controller: _searchController,
+                            decoration: InputDecoration(
+                              hintText: 'Tìm khách hàng...',
+                              prefixIcon: const Icon(Icons.search_rounded),
+                              suffixIcon: _searchController.text.isNotEmpty
+                                  ? IconButton(
+                                      tooltip: 'Xoá tìm kiếm',
+                                      icon: const Icon(Icons.close_rounded),
+                                      onPressed: _clearSearch,
+                                    )
+                                  : null,
+                              filled: true,
+                              fillColor: scheme.surface,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12.r),
+                                borderSide: BorderSide(
+                                  color: scheme.outline.withValues(alpha: 0.35),
+                                ),
+                              ),
+                            ),
+                            onChanged: (_) => setState(() {}),
+                          ),
+                          if (_searchController.text.isNotEmpty) ...[
+                            SizedBox(height: 8.h),
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                'Tìm thấy $_totalCustomers khách hàng',
+                                style: TextStyle(
+                                  fontSize: 12.sp,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
+                    ),
+                  ),
+                  SizedBox(height: 12.h),
+                  Expanded(
+                    child: _isLoading
+                        ? const Center(child: CircularProgressIndicator())
+                        : _error != null
+                        ? Center(child: Text('Lỗi: $_error'))
+                        : _filteredCustomers.isEmpty
+                        ? const Center(
+                            child: Text('Không tìm thấy khách hàng.'),
+                          )
+                        : ListView.separated(
+                            itemCount: _filteredCustomers.length,
+                            separatorBuilder: (_, index) =>
+                                SizedBox(height: 12.h),
+                            itemBuilder: (context, index) {
+                              final customer = _filteredCustomers[index];
+                              return DebtCustomerCard(
+                                customer: customer,
+                                currency: currency,
+                                showAddDebt: _showOnlyDebt,
+                                onAddDebt: () => _openDebtLineDialog(customer),
+                                onCollect: () => _openPaymentDialog(customer),
+                                onDetail: () => _openDetail(customer),
+                              );
+                            },
+                          ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            );
+          },
         ),
       ),
     );
@@ -926,11 +940,18 @@ class _DebtDetailDialogState extends State<DebtDetailDialog> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final screenHeight = MediaQuery.sizeOf(context).height;
+    final isMobile = screenWidth < 760;
+
     return Dialog(
-      insetPadding: EdgeInsets.all(18.w),
+      insetPadding: EdgeInsets.symmetric(
+        horizontal: isMobile ? 12 : 18.w,
+        vertical: isMobile ? 16 : 24,
+      ),
       child: SizedBox(
-        width: 980.w,
-        height: 640.h,
+        width: isMobile ? double.infinity : 980.w,
+        height: isMobile ? screenHeight * 0.88 : 640.h,
         child: DefaultTabController(
           length: 3,
           child: Column(
@@ -1550,10 +1571,15 @@ class _DebtPaymentDialogState extends State<DebtPaymentDialog> {
     final maxAmount = _availableDebt;
     final isEditing = widget.payment != null;
 
+    final isMobile = MediaQuery.sizeOf(context).width < 600;
     return AlertDialog(
+      insetPadding: EdgeInsets.symmetric(
+        horizontal: isMobile ? 16 : 40,
+        vertical: 24,
+      ),
       title: Text(isEditing ? 'Chỉnh sửa thu nợ' : 'Thu nợ'),
       content: SizedBox(
-        width: 440.w,
+        width: isMobile ? double.infinity : 440.w,
         child: Form(
           key: _formKey,
           child: SingleChildScrollView(
@@ -1940,10 +1966,15 @@ class _DebtLineDialogState extends State<DebtLineDialog> {
     final scheme = Theme.of(context).colorScheme;
     final isEditing = widget.line != null;
 
+    final isMobile = MediaQuery.sizeOf(context).width < 600;
     return AlertDialog(
+      insetPadding: EdgeInsets.symmetric(
+        horizontal: isMobile ? 16 : 40,
+        vertical: 24,
+      ),
       title: Text(isEditing ? 'Chỉnh sửa nợ' : 'Thêm nợ'),
       content: SizedBox(
-        width: 440.w,
+        width: isMobile ? double.infinity : 440.w,
         child: Form(
           key: _formKey,
           child: SingleChildScrollView(

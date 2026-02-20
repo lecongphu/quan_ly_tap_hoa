@@ -1,22 +1,60 @@
-﻿import { Routes } from '@angular/router';
-import { authGuard } from './core/auth.guard';
-import { LoginComponent } from './pages/login/login.component';
-import { HomeComponent } from './pages/home/home.component';
-import { PosComponent } from './pages/pos/pos.component';
-import { InventoryComponent } from './pages/inventory/inventory.component';
-import { ProductsComponent } from './pages/products/products.component';
-import { CustomersComponent } from './pages/customers/customers.component';
-import { DebtComponent } from './pages/debt/debt.component';
-import { ReportsComponent } from './pages/reports/reports.component';
+import { Routes } from '@angular/router';
+import { authGuard, loginRedirectGuard } from './core/auth.guard';
 
 export const routes: Routes = [
-  { path: 'login', component: LoginComponent },
-  { path: '', component: HomeComponent, canActivate: [authGuard] },
-  { path: 'pos', component: PosComponent, canActivate: [authGuard] },
-  { path: 'inventory', component: InventoryComponent, canActivate: [authGuard] },
-  { path: 'products', component: ProductsComponent, canActivate: [authGuard] },
-  { path: 'customers', component: CustomersComponent, canActivate: [authGuard] },
-  { path: 'debt', component: DebtComponent, canActivate: [authGuard] },
-  { path: 'reports', component: ReportsComponent, canActivate: [authGuard] },
+  {
+    path: 'login',
+    canActivate: [loginRedirectGuard],
+    loadComponent: () =>
+      import('./pages/login/login.component').then((m) => m.LoginComponent)
+  },
+  {
+    path: '',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./pages/home/home.component').then((m) => m.HomeComponent)
+  },
+  {
+    path: 'pos',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./pages/pos/pos.component').then((m) => m.PosComponent)
+  },
+  {
+    path: 'inventory',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./pages/inventory/inventory.component').then(
+        (m) => m.InventoryComponent
+      )
+  },
+  {
+    path: 'products',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./pages/products/products.component').then(
+        (m) => m.ProductsComponent
+      )
+  },
+  {
+    path: 'customers',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./pages/customers/customers.component').then(
+        (m) => m.CustomersComponent
+      )
+  },
+  {
+    path: 'debt',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./pages/debt/debt.component').then((m) => m.DebtComponent)
+  },
+  {
+    path: 'reports',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./pages/reports/reports.component').then((m) => m.ReportsComponent)
+  },
   { path: '**', redirectTo: '' }
 ];

@@ -1,8 +1,94 @@
+import 'dart:typed_data';
+
+import 'package:image/image.dart' as img;
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../../../core/constants/app_constants.dart';
 import '../../../core/services/supabase_service.dart';
 import '../models/customer_model.dart';
 
 /// Customer and debt management service
 class DebtService {
+  String _sanitizeFileName(String fileName) {
+    final sanitized = fileName.trim().replaceAll(
+      RegExp(r'[^a-zA-Z0-9._-]'),
+      '_',
+    );
+    return sanitized.isEmpty ? 'image.jpg' : sanitized;
+  }
+
+  String _buildCustomerImagePath(String customerId, String fileName) {
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    return '$customerId/$timestamp-${_sanitizeFileName(fileName)}';
+  }
+
+  String _fileNameWithoutExtension(String fileName) {
+    final dotIndex = fileName.lastIndexOf('.');
+    if (dotIndex <= 0) return fileName;
+    return fileName.substring(0, dotIndex);
+  }
+
+  int _activeImageCountFromData(dynamic data) {
+    return (data as List<dynamic>).length;
+  }
+
+  Future<void> _ensureCustomerImageLimit(String customerId) async {
+    final supabase = SupabaseService.client;
+    final existing = await supabase
+        .from(AppConstants.tableCustomerImages)
+        .select('id')
+        .eq('customer_id', customerId)
+        .eq('is_active', true);
+    final count = _activeImageCountFromData(existing);
+    if (count >= AppConstants.maxCustomerImages) {
+      throw Exception(
+        'Khach hang da dat gioi han ${AppConstants.maxCustomerImages} anh.',
+      );
+    }
+  }
+
+  ({Uint8List bytes, String fileName, String contentType})
+  _prepareImageForUpload({
+    required Uint8List sourceBytes,
+    required String sourceFileName,
+    String? sourceContentType,
+  }) {
+    final fallbackContentType = sourceContentType ?? 'image/jpeg';
+
+    try {
+      final decoded = img.decodeImage(sourceBytes);
+      if (decoded == null) {
+        return (
+          bytes: sourceBytes,
+          fileName: sourceFileName,
+          contentType: fallbackContentType,
+        );
+      }
+
+      final oriented = img.bakeOrientation(decoded);
+      final resized = oriented.width > AppConstants.customerImageMaxWidth
+          ? img.copyResize(oriented, width: AppConstants.customerImageMaxWidth)
+          : oriented;
+      final jpgBytes = img.encodeJpg(
+        resized,
+        quality: AppConstants.customerImageJpegQuality,
+      );
+      final compressedName =
+          '${_fileNameWithoutExtension(sourceFileName)}_compressed.jpg';
+      return (
+        bytes: Uint8List.fromList(jpgBytes),
+        fileName: compressedName,
+        contentType: 'image/jpeg',
+      );
+    } catch (_) {
+      return (
+        bytes: sourceBytes,
+        fileName: sourceFileName,
+        contentType: fallbackContentType,
+      );
+    }
+  }
+
   /// Get all customers
   Future<List<Customer>> getCustomers({
     bool activeOnly = true,
@@ -71,12 +157,20 @@ class DebtService {
     required String name,
     String? phone,
     String? address,
+    double? latitude,
+    double? longitude,
   }) async {
     try {
       final supabase = SupabaseService.client;
       final data = await supabase
           .from('customers')
-          .insert({'name': name, 'phone': phone, 'address': address})
+          .insert({
+            'name': name,
+            'phone': phone,
+            'address': address,
+            'latitude': latitude,
+            'longitude': longitude,
+          })
           .select('*')
           .single();
       return Customer.fromJson(data);
@@ -91,6 +185,10 @@ class DebtService {
     String? name,
     String? phone,
     String? address,
+    double? latitude,
+    double? longitude,
+    bool updateLatitude = false,
+    bool updateLongitude = false,
     bool? isActive,
   }) async {
     try {
@@ -98,6 +196,8 @@ class DebtService {
       if (name != null) updates['name'] = name;
       if (phone != null) updates['phone'] = phone;
       if (address != null) updates['address'] = address;
+      if (updateLatitude) updates['latitude'] = latitude;
+      if (updateLongitude) updates['longitude'] = longitude;
       if (isActive != null) updates['is_active'] = isActive;
 
       final supabase = SupabaseService.client;
@@ -174,16 +274,176 @@ class DebtService {
     }
   }
 
-  /// Delete (deactivate) customer
+  /// Soft delete customer (hide from active list).
   Future<void> deleteCustomer(String customerId) async {
     try {
       final supabase = SupabaseService.client;
-      await supabase
+      final updated = await supabase
           .from('customers')
           .update({'is_active': false})
+          .eq('id', customerId)
+          .select('id')
+          .maybeSingle();
+
+      if (updated != null) return;
+
+      final existing = await supabase
+          .from('customers')
+          .select('id')
+          .eq('id', customerId)
+          .maybeSingle();
+
+      if (existing == null) return;
+      throw Exception('Không có quyền ẩn khách hàng.');
+    } catch (e) {
+      throw Exception('Lỗi khi ẩn khách hàng: ${e.toString()}');
+    }
+  }
+
+  /// Get customer images
+  Future<List<CustomerImage>> getCustomerImages(
+    String customerId, {
+    bool activeOnly = true,
+  }) async {
+    try {
+      final supabase = SupabaseService.client;
+      var query = supabase
+          .from(AppConstants.tableCustomerImages)
+          .select('*')
+          .eq('customer_id', customerId);
+
+      if (activeOnly) {
+        query = query.eq('is_active', true);
+      }
+
+      final data = await query.order('created_at', ascending: false);
+      return (data as List<dynamic>)
+          .map((item) => CustomerImage.fromJson(item as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      throw Exception('Loi khi tai anh khach hang: ${e.toString()}');
+    }
+  }
+
+  /// Upload customer image (storage + metadata row)
+  Future<CustomerImage> uploadCustomerImage({
+    required String customerId,
+    required Uint8List bytes,
+    required String fileName,
+    String? contentType,
+    String? note,
+  }) async {
+    final supabase = SupabaseService.client;
+    final prepared = _prepareImageForUpload(
+      sourceBytes: bytes,
+      sourceFileName: fileName,
+      sourceContentType: contentType,
+    );
+    final imagePath = _buildCustomerImagePath(customerId, prepared.fileName);
+    final bucket = AppConstants.bucketCustomerImages;
+
+    try {
+      await _ensureCustomerImageLimit(customerId);
+
+      await supabase.storage
+          .from(bucket)
+          .uploadBinary(
+            imagePath,
+            prepared.bytes,
+            fileOptions: FileOptions(
+              contentType: prepared.contentType,
+              upsert: false,
+            ),
+          );
+
+      final inserted = await supabase
+          .from(AppConstants.tableCustomerImages)
+          .insert({
+            'customer_id': customerId,
+            'image_path': imagePath,
+            'note': note,
+            'created_by': supabase.auth.currentUser?.id,
+          })
+          .select('*')
+          .single();
+
+      return CustomerImage.fromJson(inserted);
+    } catch (e) {
+      try {
+        await supabase.storage.from(bucket).remove([imagePath]);
+      } catch (_) {}
+      throw Exception('Loi khi tai anh len: ${e.toString()}');
+    }
+  }
+
+  /// Resolve public URL from storage path
+  String getCustomerImagePublicUrl(String imagePath) {
+    return SupabaseService.client.storage
+        .from(AppConstants.bucketCustomerImages)
+        .getPublicUrl(imagePath);
+  }
+
+  /// Set or clear customer avatar by storage path
+  Future<void> setCustomerAvatar({
+    required String customerId,
+    String? imagePath,
+  }) async {
+    try {
+      final supabase = SupabaseService.client;
+      if (imagePath != null && imagePath.isNotEmpty) {
+        final existing = await supabase
+            .from(AppConstants.tableCustomerImages)
+            .select('id')
+            .eq('customer_id', customerId)
+            .eq('image_path', imagePath)
+            .eq('is_active', true)
+            .maybeSingle();
+        if (existing == null) {
+          throw Exception('Anh khong thuoc khach hang nay.');
+        }
+      }
+      await supabase
+          .from(AppConstants.tableCustomers)
+          .update({'avatar_image_path': imagePath})
           .eq('id', customerId);
     } catch (e) {
-      throw Exception('Loi khi xoa khach hang: ${e.toString()}');
+      throw Exception('Loi khi cap nhat anh dai dien: ${e.toString()}');
+    }
+  }
+
+  /// Delete customer image (storage + metadata row)
+  Future<void> deleteCustomerImage(String imageId) async {
+    try {
+      final supabase = SupabaseService.client;
+      final data = await supabase
+          .from(AppConstants.tableCustomerImages)
+          .select('id, image_path, customer_id')
+          .eq('id', imageId)
+          .maybeSingle();
+
+      if (data == null) return;
+
+      final imagePath = data['image_path'] as String?;
+      final customerId = data['customer_id'] as String?;
+      if (imagePath != null && imagePath.isNotEmpty) {
+        if (customerId != null && customerId.isNotEmpty) {
+          await supabase
+              .from(AppConstants.tableCustomers)
+              .update({'avatar_image_path': null})
+              .eq('id', customerId)
+              .eq('avatar_image_path', imagePath);
+        }
+        await supabase.storage.from(AppConstants.bucketCustomerImages).remove([
+          imagePath,
+        ]);
+      }
+
+      await supabase
+          .from(AppConstants.tableCustomerImages)
+          .delete()
+          .eq('id', imageId);
+    } catch (e) {
+      throw Exception('Loi khi xoa anh khach hang: ${e.toString()}');
     }
   }
 

@@ -147,6 +147,28 @@
   gap: 12px;
 }
 
+.barcode-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.lookup-btn {
+  white-space: nowrap;
+}
+
+.lookup-message {
+  display: block;
+  margin-top: 6px;
+  color: #0f766e;
+  font-size: 12px;
+}
+
+.lookup-message.error {
+  color: #b91c1c;
+}
+
 .dialog-actions {
   display: flex;
   justify-content: flex-end;
@@ -162,5 +184,16 @@
 @media (max-width: 900px) {
   .filter-card {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .barcode-row {
+    grid-template-columns: 1fr;
+  }
+
+  .lookup-btn {
+    width: 100%;
+    justify-content: center;
   }
 }

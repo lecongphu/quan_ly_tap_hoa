@@ -23,13 +23,15 @@ class InventoryService {
       }
 
       final products = await query.order('created_at', ascending: false);
-      final inventoryRows =
-          await supabase.from('current_inventory').select('*');
+      final inventoryRows = await supabase
+          .from('current_inventory')
+          .select('*');
 
       final inventoryMap = <String, Map<String, dynamic>>{};
       for (final row in inventoryRows) {
-        inventoryMap[row['product_id'] as String] =
-            Map<String, dynamic>.from(row as Map);
+        inventoryMap[row['product_id'] as String] = Map<String, dynamic>.from(
+          row as Map,
+        );
       }
 
       var mapped = (products as List<dynamic>).map((item) {
@@ -165,9 +167,10 @@ class InventoryService {
   }) async {
     try {
       final supabase = SupabaseService.client;
-      final data = await supabase.rpc('get_products_near_expiry', params: {
-        'days_threshold': daysThreshold,
-      });
+      final data = await supabase.rpc(
+        'get_products_near_expiry',
+        params: {'days_threshold': daysThreshold},
+      );
       return List<Map<String, dynamic>>.from(
         (data as List<dynamic>? ?? const []),
       );
@@ -196,6 +199,7 @@ class InventoryService {
     String? categoryId,
     required String unit,
     double minStockLevel = 0,
+    double? salePrice,
   }) async {
     try {
       final supabase = SupabaseService.client;
@@ -207,6 +211,7 @@ class InventoryService {
             'category_id': categoryId,
             'unit': unit,
             'min_stock_level': minStockLevel,
+            'sale_price': salePrice,
             'is_active': true,
           })
           .select('*, category:categories(name)')
@@ -229,6 +234,7 @@ class InventoryService {
     String? categoryId,
     String? unit,
     double? minStockLevel,
+    double? salePrice,
     bool? isActive,
   }) async {
     try {
@@ -238,6 +244,7 @@ class InventoryService {
       if (categoryId != null) updates['category_id'] = categoryId;
       if (unit != null) updates['unit'] = unit;
       if (minStockLevel != null) updates['min_stock_level'] = minStockLevel;
+      if (salePrice != null) updates['sale_price'] = salePrice;
       if (isActive != null) updates['is_active'] = isActive;
 
       final supabase = SupabaseService.client;
@@ -268,15 +275,20 @@ class InventoryService {
   }) async {
     try {
       final supabase = SupabaseService.client;
-      final data = await supabase.rpc('stock_in', params: {
-        'p_product_id': productId,
-        'p_quantity': quantity,
-        'p_cost_price': costPrice,
-        'p_batch_number': batchNumber,
-        'p_expiry_date': expiryDate?.toIso8601String().split('T').first,
-        'p_received_date':
-            (receivedDate ?? DateTime.now()).toIso8601String().split('T').first,
-      });
+      final data = await supabase.rpc(
+        'stock_in',
+        params: {
+          'p_product_id': productId,
+          'p_quantity': quantity,
+          'p_cost_price': costPrice,
+          'p_batch_number': batchNumber,
+          'p_expiry_date': expiryDate?.toIso8601String().split('T').first,
+          'p_received_date': (receivedDate ?? DateTime.now())
+              .toIso8601String()
+              .split('T')
+              .first,
+        },
+      );
 
       return InventoryBatch.fromJson(Map<String, dynamic>.from(data as Map));
     } catch (e) {

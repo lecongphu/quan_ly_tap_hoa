@@ -14,6 +14,7 @@ class Product {
   // From current_inventory view
   final double? currentStock;
   final double? avgCostPrice;
+  final double? salePrice;
   final DateTime? nearestExpiryDate;
 
   Product({
@@ -29,6 +30,7 @@ class Product {
     required this.updatedAt,
     this.currentStock,
     this.avgCostPrice,
+    this.salePrice,
     this.nearestExpiryDate,
   });
 
@@ -56,6 +58,9 @@ class Product {
       avgCostPrice: json['avg_cost_price'] != null
           ? (json['avg_cost_price'] as num).toDouble()
           : null,
+      salePrice: json['sale_price'] != null
+          ? (json['sale_price'] as num).toDouble()
+          : null,
       nearestExpiryDate: json['nearest_expiry_date'] != null
           ? DateTime.parse(json['nearest_expiry_date'] as String)
           : null,
@@ -70,6 +75,7 @@ class Product {
       'category_id': categoryId,
       'unit': unit,
       'min_stock_level': minStockLevel,
+      'sale_price': salePrice,
       'is_active': isActive,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
@@ -89,6 +95,7 @@ class Product {
     DateTime? updatedAt,
     double? currentStock,
     double? avgCostPrice,
+    double? salePrice,
     DateTime? nearestExpiryDate,
   }) {
     return Product(
@@ -104,6 +111,7 @@ class Product {
       updatedAt: updatedAt ?? this.updatedAt,
       currentStock: currentStock ?? this.currentStock,
       avgCostPrice: avgCostPrice ?? this.avgCostPrice,
+      salePrice: salePrice ?? this.salePrice,
       nearestExpiryDate: nearestExpiryDate ?? this.nearestExpiryDate,
     );
   }

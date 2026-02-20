@@ -1,12 +1,24 @@
 import { Injectable } from '@angular/core';
 import { Observable, from, map } from 'rxjs';
-import { Customer, CustomerSale, DebtLine, DebtPayment } from '../models/customer.model';
+import {
+  Customer,
+  CustomerImage,
+  CustomerSale,
+  DebtLine,
+  DebtPayment
+} from '../models/customer.model';
 import { supabase } from './supabase.client';
 
 @Injectable({
   providedIn: 'root'
 })
 export class DebtService {
+  private readonly customerImagesTable = 'customer_images';
+  private readonly customerImagesBucket = 'customer-images';
+  private readonly maxCustomerImages = 20;
+  private readonly customerImageMaxWidth = 1920;
+  private readonly customerImageJpegQuality = 0.82;
+
   getCustomers(onlyDebt = false, includeInactive = false): Observable<Customer[]> {
     let query = supabase.from('customers').select('*').order('created_at', { ascending: false });
 
@@ -56,6 +68,47 @@ export class DebtService {
         return { id: data.id };
       })
     );
+  }
+
+  getCustomerImages(customerId: string, activeOnly = true): Observable<CustomerImage[]> {
+    let query = supabase
+      .from(this.customerImagesTable)
+      .select('*')
+      .eq('customer_id', customerId);
+
+    if (activeOnly) {
+      query = query.eq('is_active', true);
+    }
+
+    return from(query.order('created_at', { ascending: false })).pipe(
+      map(({ data, error }) => {
+        if (error) throw error;
+        return (data ?? []) as CustomerImage[];
+      })
+    );
+  }
+
+  uploadCustomerImage(
+    customerId: string,
+    file: File,
+    note?: string | null
+  ): Observable<CustomerImage> {
+    return from(this.uploadCustomerImageInternal(customerId, file, note));
+  }
+
+  setCustomerAvatar(customerId: string, imagePath: string | null): Observable<void> {
+    return from(this.setCustomerAvatarInternal(customerId, imagePath));
+  }
+
+  deleteCustomerImage(imageId: string): Observable<void> {
+    return from(this.deleteCustomerImageInternal(imageId));
+  }
+
+  getCustomerImagePublicUrl(imagePath: string): string {
+    return supabase.storage
+      .from(this.customerImagesBucket)
+      .getPublicUrl(imagePath)
+      .data.publicUrl;
   }
 
   getCustomerHistory(
@@ -306,5 +359,259 @@ export class DebtService {
     const start = new Date(Date.UTC(year, 0, 1)).toISOString();
     const end = new Date(Date.UTC(year + 1, 0, 1)).toISOString();
     return { start, end };
+  }
+
+  private sanitizeFileName(fileName: string): string {
+    const sanitized = fileName.trim().replace(/[^a-zA-Z0-9._-]/g, '_');
+    return sanitized || 'image.jpg';
+  }
+
+  private fileNameWithoutExtension(fileName: string): string {
+    const dotIndex = fileName.lastIndexOf('.');
+    if (dotIndex <= 0) {
+      return fileName;
+    }
+    return fileName.slice(0, dotIndex);
+  }
+
+  private buildCompressedFileName(fileName: string): string {
+    const baseName = this.fileNameWithoutExtension(fileName).trim() || 'image';
+    return `${baseName}_compressed.jpg`;
+  }
+
+  private buildCustomerImagePath(customerId: string, fileName: string): string {
+    return `${customerId}/${Date.now()}-${this.sanitizeFileName(fileName)}`;
+  }
+
+  private async ensureCustomerImageLimit(customerId: string): Promise<void> {
+    const { data, error } = await supabase
+      .from(this.customerImagesTable)
+      .select('id')
+      .eq('customer_id', customerId)
+      .eq('is_active', true);
+
+    if (error) {
+      throw error;
+    }
+
+    if ((data ?? []).length >= this.maxCustomerImages) {
+      throw new Error(`Khách hàng đã đạt giới hạn ${this.maxCustomerImages} ảnh.`);
+    }
+  }
+
+  private async uploadCustomerImageInternal(
+    customerId: string,
+    file: File,
+    note?: string | null
+  ): Promise<CustomerImage> {
+    await this.ensureCustomerImageLimit(customerId);
+
+    const preparedFile = await this.compressImageForUpload(file);
+    const normalizedName = this.sanitizeFileName(preparedFile.name || file.name || 'image.jpg');
+    const imagePath = this.buildCustomerImagePath(customerId, normalizedName);
+    const contentType = preparedFile.type?.trim() || 'image/jpeg';
+    let uploaded = false;
+
+    try {
+      const { error: uploadError } = await supabase.storage
+        .from(this.customerImagesBucket)
+        .upload(imagePath, preparedFile, {
+          contentType,
+          upsert: false
+        });
+
+      if (uploadError) {
+        throw uploadError;
+      }
+      uploaded = true;
+
+      const { data, error } = await supabase
+        .from(this.customerImagesTable)
+        .insert({
+          customer_id: customerId,
+          image_path: imagePath,
+          note: note?.trim() || null
+        })
+        .select('*')
+        .single();
+
+      if (error || !data) {
+        throw error ?? new Error('Upload failed');
+      }
+
+      return data as CustomerImage;
+    } catch (error) {
+      if (uploaded) {
+        const { error: removeError } = await supabase.storage
+          .from(this.customerImagesBucket)
+          .remove([imagePath]);
+        if (removeError) {
+          throw removeError;
+        }
+      }
+      throw error;
+    }
+  }
+
+  private async compressImageForUpload(file: File): Promise<File> {
+    if (!file.type.startsWith('image/')) {
+      return file;
+    }
+
+    if (file.type === 'image/svg+xml') {
+      return file;
+    }
+
+    if (typeof document === 'undefined' || typeof createImageBitmap !== 'function') {
+      return file;
+    }
+
+    let bitmap: ImageBitmap | null = null;
+    try {
+      bitmap = await this.decodeImageBitmap(file);
+      const sourceWidth = bitmap.width;
+      const sourceHeight = bitmap.height;
+
+      if (sourceWidth <= 0 || sourceHeight <= 0) {
+        return file;
+      }
+
+      const scale =
+        sourceWidth > this.customerImageMaxWidth
+          ? this.customerImageMaxWidth / sourceWidth
+          : 1;
+
+      const targetWidth = Math.max(1, Math.round(sourceWidth * scale));
+      const targetHeight = Math.max(1, Math.round(sourceHeight * scale));
+      const canvas = document.createElement('canvas');
+      canvas.width = targetWidth;
+      canvas.height = targetHeight;
+
+      const context = canvas.getContext('2d', { alpha: false });
+      if (!context) {
+        return file;
+      }
+
+      context.drawImage(bitmap, 0, 0, targetWidth, targetHeight);
+      const compressedBlob = await this.canvasToJpegBlob(
+        canvas,
+        this.customerImageJpegQuality
+      );
+
+      if (!compressedBlob) {
+        return file;
+      }
+
+      const compressedName = this.buildCompressedFileName(file.name || 'image.jpg');
+      return new File([compressedBlob], compressedName, { type: 'image/jpeg' });
+    } catch {
+      return file;
+    } finally {
+      bitmap?.close();
+    }
+  }
+
+  private async decodeImageBitmap(file: File): Promise<ImageBitmap> {
+    try {
+      return await createImageBitmap(
+        file,
+        { imageOrientation: 'from-image' } as ImageBitmapOptions
+      );
+    } catch {
+      return createImageBitmap(file);
+    }
+  }
+
+  private canvasToJpegBlob(
+    canvas: HTMLCanvasElement,
+    quality: number
+  ): Promise<Blob | null> {
+    return new Promise((resolve) => {
+      canvas.toBlob((blob) => resolve(blob), 'image/jpeg', quality);
+    });
+  }
+
+  private async setCustomerAvatarInternal(
+    customerId: string,
+    imagePath: string | null
+  ): Promise<void> {
+    const normalizedPath = imagePath?.trim() || null;
+
+    if (normalizedPath) {
+      const { data, error } = await supabase
+        .from(this.customerImagesTable)
+        .select('id')
+        .eq('customer_id', customerId)
+        .eq('image_path', normalizedPath)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (error) {
+        throw error;
+      }
+
+      if (!data) {
+        throw new Error('Ảnh không thuộc khách hàng này.');
+      }
+    }
+
+    const { error } = await supabase
+      .from('customers')
+      .update({ avatar_image_path: normalizedPath })
+      .eq('id', customerId);
+
+    if (error) {
+      throw error;
+    }
+  }
+
+  private async deleteCustomerImageInternal(imageId: string): Promise<void> {
+    const { data, error } = await supabase
+      .from(this.customerImagesTable)
+      .select('id, image_path, customer_id')
+      .eq('id', imageId)
+      .maybeSingle();
+
+    if (error) {
+      throw error;
+    }
+
+    if (!data) {
+      return;
+    }
+
+    const imagePath = typeof data.image_path === 'string' ? data.image_path : '';
+    const customerId = typeof data.customer_id === 'string' ? data.customer_id : '';
+
+    if (imagePath) {
+      if (customerId) {
+        const { error: clearAvatarError } = await supabase
+          .from('customers')
+          .update({ avatar_image_path: null })
+          .eq('id', customerId)
+          .eq('avatar_image_path', imagePath);
+
+        if (clearAvatarError) {
+          throw clearAvatarError;
+        }
+      }
+
+      const { error: removeError } = await supabase.storage
+        .from(this.customerImagesBucket)
+        .remove([imagePath]);
+
+      if (removeError) {
+        throw removeError;
+      }
+    }
+
+    const { error: deleteError } = await supabase
+      .from(this.customerImagesTable)
+      .delete()
+      .eq('id', imageId);
+
+    if (deleteError) {
+      throw deleteError;
+    }
   }
 }

@@ -280,6 +280,46 @@
   gap: 12px;
 }
 
+.payment-code-row {
+  display: flex;
+  gap: 8px;
+}
+
+.qr-box {
+  border: 1px solid var(--outline);
+  border-radius: 14px;
+  padding: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.qr-title {
+  font-weight: 700;
+}
+
+.qr-image {
+  display: grid;
+  place-items: center;
+}
+
+.qr-image img {
+  width: min(260px, 100%);
+  aspect-ratio: 1 / 1;
+  border-radius: 10px;
+  border: 1px solid var(--outline);
+  background: #fff;
+}
+
+.qr-info {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.qr-missing {
+  color: #92400e;
+  font-size: 13px;
+}
+
 .dialog-actions {
   display: flex;
   justify-content: flex-end;

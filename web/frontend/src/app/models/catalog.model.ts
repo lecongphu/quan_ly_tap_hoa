@@ -16,6 +16,7 @@ export interface Product {
   is_active?: boolean;
   created_at?: string;
   updated_at?: string;
+  sale_price?: number | null;
   total_quantity?: number;
   avg_cost_price?: number | null;
   nearest_expiry_date?: string | null;

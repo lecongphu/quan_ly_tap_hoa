@@ -68,7 +68,6 @@ DECLARE
   v_sale sales%ROWTYPE;
   v_total_amount numeric := 0;
   v_final_amount numeric := 0;
-  v_missing_batches int := 0;
 BEGIN
   IF auth.uid() IS NULL THEN
     RAISE EXCEPTION 'Not authenticated';
@@ -97,26 +96,22 @@ BEGIN
       (item->>'unit_price')::numeric AS unit_price
     FROM jsonb_array_elements(p_items) AS item
   ),
-  items_with_batch AS (
-    SELECT i.*, get_fefo_batch(i.product_id, i.quantity) AS batch_id
-    FROM items i
-  ),
-  items_with_cost AS (
-    SELECT iwb.*, ib.cost_price
-    FROM items_with_batch iwb
-    JOIN inventory_batches ib ON ib.id = iwb.batch_id
+  validated_items AS (
+    SELECT *
+    FROM items
+    WHERE product_id IS NOT NULL
+      AND quantity IS NOT NULL
+      AND unit_price IS NOT NULL
+      AND quantity > 0
+      AND unit_price >= 0
   )
-  SELECT COUNT(*) INTO v_missing_batches
-  FROM items_with_batch
-  WHERE batch_id IS NULL;
-
-  IF v_missing_batches > 0 THEN
-    RAISE EXCEPTION 'Insufficient stock.';
-  END IF;
-
   SELECT COALESCE(SUM(quantity * unit_price), 0)
   INTO v_total_amount
-  FROM items_with_cost;
+  FROM validated_items;
+
+  IF v_total_amount <= 0 THEN
+    RAISE EXCEPTION 'Invalid cart items.';
+  END IF;
 
   v_final_amount := v_total_amount - COALESCE(p_discount_amount, 0);
 
@@ -144,6 +139,31 @@ BEGIN
   )
   RETURNING * INTO v_sale;
 
+  WITH items AS (
+    SELECT
+      (item->>'product_id')::uuid AS product_id,
+      (item->>'quantity')::numeric AS quantity,
+      (item->>'unit_price')::numeric AS unit_price
+    FROM jsonb_array_elements(p_items) AS item
+  ),
+  validated_items AS (
+    SELECT *
+    FROM items
+    WHERE product_id IS NOT NULL
+      AND quantity IS NOT NULL
+      AND unit_price IS NOT NULL
+      AND quantity > 0
+      AND unit_price >= 0
+  ),
+  items_with_batch AS (
+    SELECT vi.*, get_fefo_batch(vi.product_id, vi.quantity) AS batch_id
+    FROM validated_items vi
+  ),
+  items_with_cost AS (
+    SELECT iwb.*, COALESCE(ib.cost_price, 0) AS cost_price
+    FROM items_with_batch iwb
+    LEFT JOIN inventory_batches ib ON ib.id = iwb.batch_id
+  )
   INSERT INTO sale_items (
     sale_id,
     product_id,

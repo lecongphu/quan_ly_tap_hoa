@@ -74,6 +74,7 @@ CREATE TABLE products (
     category_id UUID REFERENCES categories(id),
     unit TEXT NOT NULL,
     min_stock_level DECIMAL(10,2) DEFAULT 0,
+    sale_price DECIMAL(10,2),
     is_active BOOLEAN DEFAULT true,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -156,7 +157,22 @@ CREATE TABLE customers (
     name TEXT NOT NULL,
     phone TEXT,
     address TEXT,
+    latitude DOUBLE PRECISION CHECK (latitude IS NULL OR (latitude >= -90 AND latitude <= 90)),
+    longitude DOUBLE PRECISION CHECK (longitude IS NULL OR (longitude >= -180 AND longitude <= 180)),
+    avatar_image_path TEXT,
     current_debt DECIMAL(10,2) DEFAULT 0,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Customer images
+CREATE TABLE customer_images (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    customer_id UUID NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+    image_path TEXT NOT NULL UNIQUE,
+    note TEXT,
+    created_by UUID REFERENCES profiles(id),
     is_active BOOLEAN DEFAULT true,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -280,6 +296,8 @@ CREATE INDEX idx_sales_customer ON sales(customer_id);
 CREATE INDEX idx_sales_created_at ON sales(created_at);
 CREATE INDEX idx_sale_items_sale ON sale_items(sale_id);
 CREATE INDEX idx_debt_payments_customer ON debt_payments(customer_id);
+CREATE INDEX idx_customer_images_customer_id ON customer_images(customer_id);
+CREATE INDEX idx_customer_images_created_at ON customer_images(created_at DESC);
 CREATE INDEX idx_audit_logs_user ON audit_logs(user_id);
 CREATE INDEX idx_audit_logs_created_at ON audit_logs(created_at);
 

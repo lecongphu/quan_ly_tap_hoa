@@ -2,6 +2,7 @@
 import { Component, OnInit } from '@angular/core';
 import { FormsModule, ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { CatalogService } from '../../core/catalog.service';
+import { APP_CONFIG } from '../../core/config';
 import { PosService } from '../../core/pos.service';
 import { Category, Product } from '../../models/catalog.model';
 import { CartItem } from '../../models/cart.model';
@@ -27,6 +28,12 @@ export class PosComponent implements OnInit {
 
   showPaymentDialog = false;
   isCheckingOut = false;
+  paymentCode = '';
+  qrCodeUrl: string | null = null;
+
+  readonly vietQrBankCode = APP_CONFIG.vietQrBankCode?.trim() || '';
+  readonly vietQrAccountNumber = APP_CONFIG.vietQrAccountNumber?.trim() || '';
+  readonly vietQrAccountName = APP_CONFIG.vietQrAccountName?.trim() || '';
 
   paymentForm = this.fb.group({
     customer_id: [''],
@@ -110,11 +117,26 @@ export class PosComponent implements OnInit {
     return this.subtotal - this.discountAmount;
   }
 
+  get isTransferPayment(): boolean {
+    return this.paymentForm.value.payment_method === 'transfer';
+  }
+
+  get hasQrConfig(): boolean {
+    return !!this.vietQrBankCode && !!this.vietQrAccountNumber && !!this.vietQrAccountName;
+  }
+
+  getSalePrice(product: Product): number {
+    if (product.sale_price != null && product.sale_price >= 0) {
+      return product.sale_price;
+    }
+    return (product.avg_cost_price ?? 0) * 1.3;
+  }
+
   addProduct(product: Product): void {
-    if ((product.total_quantity ?? 0) <= 0) return;
     const existing = this.cart.find((item) => item.product.id === product.id);
-    const price = (product.avg_cost_price ?? 0) * 1.3;
+    const price = this.getSalePrice(product);
     if (existing) {
+      existing.unit_price = price;
       existing.quantity += 1;
     } else {
       this.cart.push({
@@ -141,11 +163,32 @@ export class PosComponent implements OnInit {
       window.alert('Giỏ hàng trống.');
       return;
     }
+    this.preparePaymentData();
     this.showPaymentDialog = true;
   }
 
   closeCheckout(): void {
     this.showPaymentDialog = false;
+    this.qrCodeUrl = null;
+  }
+
+  onPaymentMethodChange(): void {
+    this.updateQrCode();
+  }
+
+  onDiscountChange(): void {
+    if (this.isTransferPayment) {
+      this.updateQrCode();
+    }
+  }
+
+  copyPaymentCode(): void {
+    this.copyText(this.paymentCode, 'Đã copy mã thanh toán.');
+  }
+
+  copyQrLink(): void {
+    if (!this.qrCodeUrl) return;
+    this.copyText(this.qrCodeUrl, 'Đã copy link QR.');
   }
 
   confirmCheckout(): void {
@@ -159,7 +202,7 @@ export class PosComponent implements OnInit {
         this.paymentForm.value.payment_method === 'debt'
           ? (this.paymentForm.value.due_date || null)
           : null,
-      notes: this.paymentForm.value.notes || null,
+      notes: this.paymentCode || this.paymentForm.value.notes || null,
       items: this.cart.map((item) => ({
         product_id: item.product.id,
         quantity: item.quantity,
@@ -172,8 +215,15 @@ export class PosComponent implements OnInit {
       next: () => {
         this.isCheckingOut = false;
         this.cart = [];
-        this.paymentForm.reset({ payment_method: 'cash', discount_amount: 0, due_date: '' });
+        this.paymentForm.reset({
+          payment_method: 'cash',
+          discount_amount: 0,
+          due_date: '',
+          notes: ''
+        });
         this.showPaymentDialog = false;
+        this.paymentCode = '';
+        this.qrCodeUrl = null;
         this.loadData();
         window.alert('Bán hàng thành công!');
       },
@@ -202,5 +252,55 @@ export class PosComponent implements OnInit {
     if (stock <= 0) return '#ef4444';
     if (min > 0 && stock <= min) return '#f59e0b';
     return '#22c55e';
+  }
+
+  private preparePaymentData(): void {
+    this.paymentCode = this.createPaymentCode();
+    this.paymentForm.patchValue({ notes: this.paymentCode }, { emitEvent: false });
+    this.updateQrCode();
+  }
+
+  private createPaymentCode(): string {
+    const now = new Date();
+    const yy = now.getFullYear().toString().slice(-2);
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const dd = String(now.getDate()).padStart(2, '0');
+    const hh = String(now.getHours()).padStart(2, '0');
+    const min = String(now.getMinutes()).padStart(2, '0');
+    const ss = String(now.getSeconds()).padStart(2, '0');
+    const ms = String(now.getMilliseconds()).padStart(3, '0');
+    return `TT${yy}${mm}${dd}${hh}${min}${ss}${ms}`;
+  }
+
+  private updateQrCode(): void {
+    if (!this.isTransferPayment || !this.hasQrConfig) {
+      this.qrCodeUrl = null;
+      return;
+    }
+
+    const baseUrl = (APP_CONFIG.vietQrBaseUrl || 'https://img.vietqr.io/image').replace(/\/$/, '');
+    const template = APP_CONFIG.vietQrTemplate || 'compact';
+    const amount = Math.max(0, Math.round(this.finalAmount));
+    const description = this.paymentCode ? `THANH TOAN ${this.paymentCode}` : 'THANH TOAN';
+
+    this.qrCodeUrl =
+      `${baseUrl}/${this.vietQrBankCode}-${this.vietQrAccountNumber}-${template}.jpg` +
+      `?amount=${amount}` +
+      `&addInfo=${encodeURIComponent(description)}` +
+      `&accountName=${encodeURIComponent(this.vietQrAccountName)}`;
+  }
+
+  private copyText(value: string, successMessage: string): void {
+    if (!value) return;
+
+    if (!navigator.clipboard?.writeText) {
+      window.prompt('Sao chép thủ công:', value);
+      return;
+    }
+
+    navigator.clipboard
+      .writeText(value)
+      .then(() => window.alert(successMessage))
+      .catch(() => window.prompt('Sao chép thủ công:', value));
   }
 }

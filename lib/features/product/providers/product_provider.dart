@@ -82,6 +82,7 @@ class ProductNotifier extends StateNotifier<ProductState> {
     required String categoryId,
     String? barcode,
     double? minStockLevel,
+    double? salePrice,
   }) async {
     try {
       await _service.createProduct(
@@ -90,6 +91,7 @@ class ProductNotifier extends StateNotifier<ProductState> {
         categoryId: categoryId,
         barcode: barcode,
         minStockLevel: minStockLevel,
+        salePrice: salePrice,
       );
       await loadProducts();
     } catch (e) {
@@ -106,6 +108,7 @@ class ProductNotifier extends StateNotifier<ProductState> {
     String? categoryId,
     String? unit,
     double? minStockLevel,
+    double? salePrice,
     bool? isActive,
   }) async {
     try {
@@ -116,6 +119,7 @@ class ProductNotifier extends StateNotifier<ProductState> {
         categoryId: categoryId,
         unit: unit,
         minStockLevel: minStockLevel,
+        salePrice: salePrice,
         isActive: isActive,
       );
       await loadProducts();
