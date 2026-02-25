@@ -104,6 +104,34 @@ router.get(
   })
 );
 
+router.get(
+  '/stores',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const { data, error } = await req.supabase.rpc('get_my_stores');
+    if (error) return res.status(400).json({ message: error.message });
+    return res.json(data ?? []);
+  })
+);
+
+router.post(
+  '/stores/active',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const schema = z.object({ store_id: z.string().uuid() });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: 'Invalid store_id.' });
+
+    const { data, error } = await req.supabase.rpc('set_my_default_store', {
+      target_store: parsed.data.store_id
+    });
+
+    if (error) return res.status(400).json({ message: error.message });
+    if (!data) return res.status(403).json({ message: 'Store access denied.' });
+    return res.json({ ok: true, store_id: parsed.data.store_id });
+  })
+);
+
 router.post(
   '/logout',
   requireAuth,

@@ -1,7 +1,8 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { BehaviorSubject, Observable, from, tap } from 'rxjs';
 import { LoginResponse, UserProfile } from '../models/user.model';
 import { supabase } from './supabase.client';
+import { StoreContextService } from './store-context.service';
 
 interface StoredSession {
   access_token: string;
@@ -15,6 +16,7 @@ interface StoredSession {
 export class AuthService {
   private readonly sessionKey = 'qlth.session';
   private readonly profileKey = 'qlth.profile';
+  private readonly storeContext = inject(StoreContextService);
 
   private profileSubject = new BehaviorSubject<UserProfile | null>(this.loadProfile());
   profile$ = this.profileSubject.asObservable();
@@ -53,6 +55,8 @@ export class AuthService {
 
         this.saveSession(response.session);
         this.saveProfile(response.profile);
+        // Load active store context for multi-store mode
+        this.storeContext.loadMyStores().subscribe({ error: () => {} });
         return response;
       })()
     );
@@ -107,6 +111,7 @@ export class AuthService {
     });
 
     await this.ensureProfileLoaded();
+    this.storeContext.loadMyStores().subscribe({ error: () => {} });
     return true;
   }
 
@@ -161,5 +166,6 @@ export class AuthService {
     localStorage.removeItem(this.sessionKey);
     localStorage.removeItem(this.profileKey);
     this.profileSubject.next(null);
+    this.storeContext.clear();
   }
 }

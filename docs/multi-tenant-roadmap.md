@@ -26,12 +26,25 @@ Migration file:
 Migration file:
 - `database/migrations/002_multi_tenant_backfill_and_rls.sql`
 
-## Next (Phase 3)
+## ✅ In progress (Phase 3)
 
-1. Update backend routes to always filter/write by `store_id`
-2. Add middleware for active store context (from token/header)
-3. Update frontend with store switcher and active-store persistence
-4. Add onboarding flow: create store + invite members
+Implemented:
+1. Added migration `003_store_context_and_active_store_scope.sql`
+   - `get_my_stores()`
+   - `set_my_default_store(target_store)`
+   - RLS for `stores` and `store_members`
+   - tenant scope tightened to active/default store context
+2. Backend `requireAuth` now supports `x-store-id` and switches active store context
+3. Added backend auth APIs:
+   - `GET /auth/stores`
+   - `POST /auth/stores/active`
+4. Frontend store context service:
+   - `StoreContextService` (load stores, switch active store, persist active store)
+   - interceptor now sends `x-store-id`
+
+Remaining:
+- Add store switcher UI in frontend pages (top bar/dropdown)
+- Add onboarding flow: create store + invite members
 
 ## Next (Phase 3)
 

@@ -26,6 +26,21 @@ export const requireAuth = asyncHandler(async (req, res, next) => {
   req.user = data.user;
   req.accessToken = token;
   req.supabase = createUserClient(token);
+
+  // Active store context (optional): frontend sends x-store-id.
+  // If present, switch default store for this user context.
+  const storeId = String(req.headers['x-store-id'] || '').trim();
+  if (storeId) {
+    const { data: switched, error: switchErr } = await req.supabase.rpc('set_my_default_store', {
+      target_store: storeId
+    });
+
+    if (switchErr || !switched) {
+      return res.status(403).json({ message: 'Invalid store context.' });
+    }
+    req.storeId = storeId;
+  }
+
   return next();
 });
 
