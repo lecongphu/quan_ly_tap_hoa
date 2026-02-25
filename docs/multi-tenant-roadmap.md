@@ -14,13 +14,24 @@ This project is being upgraded from single-store to multi-store (SaaS-ready).
 Migration file:
 - `database/migrations/001_multi_tenant_foundation.sql`
 
-## Next (Phase 2)
+## ✅ Done (Phase 2 - database hardening)
 
-1. Backfill existing data into a default store
-2. Set `store_id NOT NULL` where appropriate
-3. Update RLS policies to tenant scope:
-   - read/write only rows in stores the user is member of
-4. Update API/UI to always pass store context
+- Backfilled existing data into a default store
+- Ensured store membership for existing users
+- Added `store_id` auto-fill trigger on inserts
+- Set `store_id NOT NULL` for core business tables
+- Added tenant-scoped **RESTRICTIVE** RLS policies with `is_member_of_store(store_id)`
+- Forced RLS on tenant tables
+
+Migration file:
+- `database/migrations/002_multi_tenant_backfill_and_rls.sql`
+
+## Next (Phase 3)
+
+1. Update backend routes to always filter/write by `store_id`
+2. Add middleware for active store context (from token/header)
+3. Update frontend with store switcher and active-store persistence
+4. Add onboarding flow: create store + invite members
 
 ## Next (Phase 3)
 
