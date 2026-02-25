@@ -1,0 +1,6 @@
+name = "quan-ly-tap-hoa-web"
+compatibility_date = "2026-02-25"
+
+[assets]
+directory = "dist/quan-ly-tap-hoa-web/browser"
+not_found_handling = "single-page-application"
