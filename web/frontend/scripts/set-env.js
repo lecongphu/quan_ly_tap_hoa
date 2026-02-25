@@ -39,7 +39,10 @@ const supabaseUrl = getEnv(
   'SUPABASE_URL',
   'https://feddgbxjuowpsmtokwco.supabase.co'
 );
-const supabaseAnonKey = getEnv('SUPABASE_ANON_KEY', '');
+const supabaseAnonKey = getEnv(
+  'SUPABASE_ANON_KEY',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZlZGRnYnhqdW93cHNtdG9rd2NvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg5ODk0MzMsImV4cCI6MjA4NDU2NTQzM30.lk5zzgm8yWYdGQKZBeFRDX1XBeCBhv3BAkShQ4A-XJQ'
+);
 const googleMapsApiKey = getEnv('GOOGLE_MAPS_API_KEY', '');
 const vietQrBaseUrl = getEnv('VIETQR_BASE_URL', 'https://img.vietqr.io/image');
 const vietQrTemplate = getEnv('VIETQR_TEMPLATE', 'compact');
