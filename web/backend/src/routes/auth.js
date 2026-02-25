@@ -1,6 +1,6 @@
 ﻿import { Router } from 'express';
 import { z } from 'zod';
-import { createAnonClient, createUserClient } from '../lib/supabase.js';
+import { createAnonClient, createUserClient, createAdminClient } from '../lib/supabase.js';
 import { asyncHandler, getRequestIp } from '../lib/http.js';
 import { requireAuth } from '../middleware/auth.js';
 
@@ -10,6 +10,62 @@ const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6)
 });
+
+const registerSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(6),
+  full_name: z.string().min(2),
+  store_name: z.string().min(2),
+  phone: z.string().optional().nullable()
+});
+
+router.post(
+  '/register',
+  asyncHandler(async (req, res) => {
+    const parsed = registerSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ message: 'Invalid registration payload.' });
+    }
+
+    const { email, password, full_name, store_name, phone } = parsed.data;
+    const anon = createAnonClient();
+
+    const { data, error } = await anon.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          full_name
+        }
+      }
+    });
+
+    if (error || !data?.user) {
+      return res.status(400).json({ message: error?.message || 'Sign up failed.' });
+    }
+
+    const admin = createAdminClient();
+
+    const { error: bootstrapErr } = await admin.rpc('bootstrap_user_store', {
+      p_user_id: data.user.id,
+      p_full_name: full_name,
+      p_store_name: store_name,
+      p_phone: phone ?? null
+    });
+
+    if (bootstrapErr) {
+      return res.status(400).json({ message: bootstrapErr.message });
+    }
+
+    return res.status(201).json({
+      message: data.session
+        ? 'Registration successful.'
+        : 'Registration successful. Please confirm your email before logging in.',
+      user: data.user,
+      session: data.session ?? null
+    });
+  })
+);
 
 router.post(
   '/login',

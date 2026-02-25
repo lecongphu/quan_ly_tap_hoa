@@ -42,9 +42,16 @@ Implemented:
    - `StoreContextService` (load stores, switch active store, persist active store)
    - interceptor now sends `x-store-id`
 
+## ✅ Done (Phase 4 - one user one store + signup bootstrap)
+
+- Added migration `004_one_user_one_store_signup.sql`
+- Enforced one-user-one-store with unique index on `store_members(user_id)`
+- Added `bootstrap_user_store(...)` function to initialize profile + store + membership
+- Added backend route: `POST /auth/register` (self-signup + bootstrap store)
+
 Remaining:
 - Add store switcher UI in frontend pages (top bar/dropdown)
-- Add onboarding flow: create store + invite members
+- Add invite-member flow if moving to multi-user-per-store model later
 
 ## Next (Phase 3)
 
